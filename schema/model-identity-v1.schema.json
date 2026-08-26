@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flyology.org/tla/schema/model-identity-v1.schema.json",
+  "title": "Flyology TLA+ resolved model identity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "module",
+    "configuration",
+    "source_sha256",
+    "configuration_sha256",
+    "semantic_xml_sha256"
+  ],
+  "properties": {
+    "format": {"const": "flyology.tla.model-identity/1"},
+    "module": {"type": "string", "minLength": 1},
+    "configuration": {"type": "string", "minLength": 1},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "configuration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "semantic_xml_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

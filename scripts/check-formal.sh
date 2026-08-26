@@ -79,10 +79,10 @@ grep -q '3 distinct states found' "$temporary_root/tlc.log"
 grep -Eq '^<Increment .*: [1-9]' "$temporary_root/tlc.log"
 ! grep -q '^Warning:' "$temporary_root/tlc.log"
 
-source_sha256=$(digest "$model_root/Counter.tla")
 "$project_root/bin/flyology-tla" trace normalize \
   "$temporary_root/raw.json" "$temporary_root/counter.trace.json" \
-  Counter Counter.cfg "$source_sha256" tla2tools-1.8.0+9787e65 10 20
+  "$model_root/Counter.tla" --config "$model_root/Counter.cfg" \
+  --toolchain tla2tools-1.8.0+9787e65 10 20
 "$project_root/bin/flyology-tla" trace validate \
   "$temporary_root/counter.trace.json" 10 20
 cmp "$project_root/examples/counter/traces/counter.trace.json" \

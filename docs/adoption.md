@@ -7,7 +7,8 @@
 4. Keep TLA+ modules/configurations and the reviewed `ALIAS` projection under `formal/tla` in the consumer.
 5. Run TLC single-worker with an explicit heap, metadir, configuration, module, and `-dumpTrace json` path.
 6. Check TLC's exact expected exit and invariant/property message before normalizing a witness.
-7. Normalize, validate, regenerate, and byte-compare committed traces.
+7. Run `model identity`, then normalize with the module/configuration paths; validate, regenerate, and byte-compare
+   committed `flyology.tla.trace/2` traces. Do not supply a root-file-only digest.
 8. Define finite `TypeOK`, `HarnessInputType`, and `HarnessOutcomeType` operators, then run
    `flyology-tla ada generate MODULE.tla --config MODEL.cfg --package PACKAGE --output DIRECTORY`.
 9. Add the generated directory to the consuming GPR `Source_Dirs`, extend the generated `PACKAGE.Adapter`, and use
@@ -20,5 +21,5 @@
 14. Run TLAPM separately with an explicit cache and strict method; do not represent conformance replay as proof.
 
 Counterweave and Flyology DB should consume this lower contract rather than being dependencies of it. A migration may
-translate existing recorded choices/workloads into `flyology.tla.trace/1`, but the old artifact alone is not evidence
+translate existing recorded choices/workloads into `flyology.tla.trace/2`, but the old artifact alone is not evidence
 that Ada replay occurred.

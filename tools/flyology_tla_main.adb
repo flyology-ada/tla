@@ -2,15 +2,18 @@ with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Environment_Variables;
 with Ada.Exceptions;
+with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 with Flyology_TLA.TLC_Traces;
 with Flyology_TLA.Toolchains;
 with Flyology_TLA.Traces;
 with Flyology_TLA_Ada_Generation;
+with Flyology_TLA_Model_Identity;
 
 procedure Flyology_TLA_Main is
 
    use type Ada.Directories.File_Size;
+   use Ada.Strings.Unbounded;
 
    function Argument (Index : Positive) return String
    renames Ada.Command_Line.Argument;
@@ -85,8 +88,8 @@ procedure Flyology_TLA_Main is
       Ada.Text_IO.Put_Line
         ("  flyology-tla trace validate TRACE MAX_STEPS MAX_JSON_DEPTH");
       Ada.Text_IO.Put_Line
-        ("  flyology-tla trace normalize RAW OUT MODULE CFG SOURCE_SHA256 "
-         & "TOOLCHAIN MAX_STEPS MAX_JSON_DEPTH");
+        ("  flyology-tla trace normalize RAW OUT MODULE.tla --config MODEL.cfg "
+         & "--toolchain ID MAX_STEPS MAX_JSON_DEPTH");
       Ada.Text_IO.Put_Line
         ("  flyology-tla trace prefix TRACE OUT LAST_STEP MAX_STEPS MAX_JSON_DEPTH");
       Ada.Text_IO.Put_Line
@@ -95,6 +98,8 @@ procedure Flyology_TLA_Main is
       Ada.Text_IO.Put_Line
         ("      [--type-invariant TypeOK] [--input-type HarnessInputType] "
          & "[--outcome-type HarnessOutcomeType]");
+      Ada.Text_IO.Put_Line
+        ("  flyology-tla model identity MODULE.tla --config MODEL.cfg");
       Ada.Text_IO.Put_Line
         ("  flyology-tla toolchain install|verify|env [ABSOLUTE_ROOT]");
    end Help;
@@ -116,27 +121,38 @@ begin
              (Argument (3), Limits (Argument (3), Maximum_Steps, Maximum_Depth));
       begin
          Ada.Text_IO.Put_Line
-           ("valid flyology.tla.trace/1:"
+           ("valid flyology.tla.trace/"
+            & (if Length (Trace.Model.Configuration_SHA256) = 0 then "1" else "2")
+            & ":"
             & Natural'Image (Natural (Trace.Steps.Length))
             & " steps");
       end;
-   elsif Ada.Command_Line.Argument_Count = 10
+   elsif Ada.Command_Line.Argument_Count = 11
      and then Argument (1) = "trace"
      and then Argument (2) = "normalize"
+     and then Argument (6) = "--config"
+     and then Argument (8) = "--toolchain"
    then
       declare
-         Maximum_Steps : constant Positive := Positive'Value (Argument (9));
-         Maximum_Depth : constant Positive := Positive'Value (Argument (10));
+         Maximum_Steps : constant Positive := Positive'Value (Argument (10));
+         Maximum_Depth : constant Positive := Positive'Value (Argument (11));
+         Identity : constant Flyology_TLA_Model_Identity.Identity :=
+           Flyology_TLA_Model_Identity.Resolve
+             (Module_Path        => Argument (5),
+              Configuration_Path => Argument (7),
+              Java_Path          => Ada.Environment_Variables.Value ("FLYOLOGY_TLA_JAVA"),
+              TLC_Jar_Path       => Ada.Environment_Variables.Value ("FLYOLOGY_TLA_TLC_JAR"));
       begin
          Flyology_TLA.TLC_Traces.Normalize
            (Raw_Path           => Argument (3),
             Output_Path        => Argument (4),
-            Module_Name        => Argument (5),
-            Configuration      => Argument (6),
-            Source_SHA256      => Argument (7),
-            Toolchain_Identity => Argument (8),
+            Module_Name        => To_String (Identity.Module_Name),
+            Configuration      => To_String (Identity.Configuration),
+            Source_SHA256      => To_String (Identity.Source_SHA256),
+            Configuration_SHA256 => To_String (Identity.Configuration_SHA256),
+            Toolchain_Identity => Argument (9),
             Limits             => Limits (Argument (3), Maximum_Steps, Maximum_Depth));
-         Ada.Text_IO.Put_Line ("normalized flyology.tla.trace/1: " & Argument (4));
+         Ada.Text_IO.Put_Line ("normalized flyology.tla.trace/2: " & Argument (4));
       end;
    elsif Ada.Command_Line.Argument_Count = 7
      and then Argument (1) = "trace"
@@ -152,7 +168,9 @@ begin
       begin
          Flyology_TLA.Traces.Write_Prefix (Trace, Last_Step, Argument (4));
          Ada.Text_IO.Put_Line
-           ("wrote flyology.tla.trace/1 prefix through step"
+           ("wrote flyology.tla.trace/"
+            & (if Length (Trace.Model.Configuration_SHA256) = 0 then "1" else "2")
+            & " prefix through step"
             & Natural'Image (Last_Step)
             & ": "
             & Argument (4));
@@ -180,6 +198,18 @@ begin
          Ada.Text_IO.Put_Line
            ("generated typed Ada harness package " & Package_Name & " in " & Output_Path);
       end;
+   elsif Ada.Command_Line.Argument_Count = 5
+     and then Argument (1) = "model"
+     and then Argument (2) = "identity"
+     and then Argument (4) = "--config"
+   then
+      Ada.Text_IO.Put_Line
+        (Flyology_TLA_Model_Identity.JSON_Image
+           (Flyology_TLA_Model_Identity.Resolve
+              (Module_Path        => Argument (3),
+               Configuration_Path => Argument (5),
+               Java_Path          => Ada.Environment_Variables.Value ("FLYOLOGY_TLA_JAVA"),
+               TLC_Jar_Path       => Ada.Environment_Variables.Value ("FLYOLOGY_TLA_TLC_JAR"))));
    elsif Ada.Command_Line.Argument_Count in 2 .. 3
      and then Argument (1) = "toolchain"
      and then Argument (2) in "install" | "verify" | "env"

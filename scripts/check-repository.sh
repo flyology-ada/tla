@@ -13,6 +13,11 @@ test -f examples/counter/ada/generated/counter_model.ads
 test -f examples/counter/ada/generated/counter_model.adb
 test -f examples/counter/ada/generated/counter_model.inference.json
 test -f schema/ada-inference-v1.schema.json
+test -f schema/model-identity-v1.schema.json
+test -f schema/trace-v2.schema.json
+test -f tools/flyology_tla_model_identity.ads
+test -f tools/flyology_tla_model_identity.adb
+test -x tests/sandbox-bin/model-identity-java
 test -f src/flyology_tla-reporting.ads
 test -f src/flyology_tla-command_line.ads
 test -f docs/reporting-and-cli.md

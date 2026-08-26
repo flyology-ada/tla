@@ -14,10 +14,13 @@ package Flyology_TLA.Traces is
    end record;
 
    type Model_Identity is record
-      Module_Name       : Ada.Strings.Unbounded.Unbounded_String;
-      Configuration     : Ada.Strings.Unbounded.Unbounded_String;
-      Source_SHA256     : Ada.Strings.Unbounded.Unbounded_String;
-      Toolchain_Identity : Ada.Strings.Unbounded.Unbounded_String;
+      Module_Name          : Ada.Strings.Unbounded.Unbounded_String;
+      Configuration        : Ada.Strings.Unbounded.Unbounded_String;
+      Source_SHA256        : Ada.Strings.Unbounded.Unbounded_String;
+      Configuration_SHA256 : Ada.Strings.Unbounded.Unbounded_String;
+      --  Empty only for a legacy flyology.tla.trace/1 loaded from evidence.
+      --  New producers supply the exact configuration-byte digest and emit /2.
+      Toolchain_Identity   : Ada.Strings.Unbounded.Unbounded_String;
    end record;
 
    type Trace_Step is record

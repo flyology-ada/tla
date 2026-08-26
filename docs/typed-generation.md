@@ -47,10 +47,12 @@ comparison and first-divergence reporting as a manual adapter.
 
 The command writes:
 
-- `<package>.ads` and `<package>.adb`, including exact source/configuration SHA-256 comments; and
+- `<package>.ads` and `<package>.adb`, including exact local-module-closure/configuration SHA-256 comments; and
 - `<package>.inference.json`, conforming to `schema/ada-inference-v1.schema.json`.
 
-The report records the selected operators, input hashes, SANY XML hash, every state-variable mapping, inferred kind,
+The source hash is the same byte-framed, sorted SANY-resolved local-module closure returned by
+`flyology-tla model identity`; the configuration hash covers exact file bytes. The report records the selected
+operators, those identity hashes, the SANY XML hash, every state-variable mapping, inferred kind,
 and evidence line. Run generation from a stable repository-relative command and byte-compare all three files in CI.
 
 The example command is:

@@ -1,23 +1,18 @@
 with Ada.Characters.Handling;
 with Ada.Containers.Vectors;
 with Ada.Directories;
-with Ada.Streams;
-with Ada.Streams.Stream_IO;
 with Ada.Strings;
 with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 with Flyology_TLA.Codecs;
-with GNAT.OS_Lib;
-with GNAT.SHA256;
+with Flyology_TLA_Model_Identity;
 
 package body Flyology_TLA_Ada_Generation is
 
    use Ada.Strings.Unbounded;
    use type Ada.Containers.Count_Type;
-   use type Ada.Directories.File_Size;
    use type Ada.Directories.File_Kind;
-   use type GNAT.OS_Lib.String_Access;
 
    Generation_Error : exception;
 
@@ -27,43 +22,6 @@ package body Flyology_TLA_Ada_Generation is
          raise Generation_Error with Message;
       end if;
    end Require;
-
-   function Read_File (Path : String) return String is
-      use type Ada.Streams.Stream_Element_Offset;
-      Size : constant Ada.Directories.File_Size := Ada.Directories.Size (Path);
-      File : Ada.Streams.Stream_IO.File_Type;
-   begin
-      Require (Size > 0, "input file is empty: " & Path);
-      Require
-        (Size <= Ada.Directories.File_Size (Natural'Last),
-         "input file is too large: " & Path);
-      declare
-         Data : Ada.Streams.Stream_Element_Array
-           (1 .. Ada.Streams.Stream_Element_Offset (Size));
-         Last : Ada.Streams.Stream_Element_Offset;
-         Text : String (1 .. Natural (Size));
-      begin
-         Ada.Streams.Stream_IO.Open (File, Ada.Streams.Stream_IO.In_File, Path);
-         Ada.Streams.Stream_IO.Read (File, Data, Last);
-         Ada.Streams.Stream_IO.Close (File);
-         Require (Last = Data'Last, "short read from: " & Path);
-         for Index in Data'Range loop
-            Text (Natural (Index)) := Character'Val (Data (Index));
-         end loop;
-         return Text;
-      end;
-   exception
-      when Ada.Directories.Name_Error | Ada.Directories.Use_Error =>
-         if Ada.Streams.Stream_IO.Is_Open (File) then
-            Ada.Streams.Stream_IO.Close (File);
-         end if;
-         raise Generation_Error with "cannot read file: " & Path;
-      when others =>
-         if Ada.Streams.Stream_IO.Is_Open (File) then
-            Ada.Streams.Stream_IO.Close (File);
-         end if;
-         raise;
-   end Read_File;
 
    type XML_Node;
    type XML_Node_Access is access XML_Node;
@@ -1290,17 +1248,7 @@ package body Flyology_TLA_Ada_Generation is
       Java_Path             : String;
       TLC_Jar_Path          : String)
    is
-      use type GNAT.OS_Lib.File_Descriptor;
-      Source         : constant String := Read_File (Module_Path);
-      Configuration  : constant String := Read_File (Configuration_Path);
-      Source_SHA256  : constant GNAT.SHA256.Message_Digest :=
-        GNAT.SHA256.Digest (Source);
-      Config_SHA256  : constant GNAT.SHA256.Message_Digest :=
-        GNAT.SHA256.Digest (Configuration);
-      Temporary_FD   : GNAT.OS_Lib.File_Descriptor := GNAT.OS_Lib.Invalid_FD;
-      Temporary_Name : GNAT.OS_Lib.String_Access;
-      Spawned         : Boolean;
-      Return_Code     : Integer;
+      Semantic_XML : Unbounded_String;
    begin
       Require
         (Ada.Directories.Kind (Java_Path) = Ada.Directories.Ordinary_File,
@@ -1314,50 +1262,17 @@ package body Flyology_TLA_Ada_Generation is
       if not Ada.Directories.Exists (Output_Directory) then
          Ada.Directories.Create_Path (Output_Directory);
       end if;
-      GNAT.OS_Lib.Create_Temp_File (Temporary_FD, Temporary_Name);
-      Require
-        (Temporary_FD /= GNAT.OS_Lib.Invalid_FD,
-         "cannot create temporary SANY XML file");
+      Semantic_XML := To_Unbounded_String
+        (Flyology_TLA_Model_Identity.Export_Semantic_XML
+           (Module_Path, Java_Path, TLC_Jar_Path));
       declare
-         Arguments : GNAT.OS_Lib.Argument_List (1 .. 8) :=
-           [new String'("-cp"),
-            new String'(TLC_Jar_Path),
-            new String'("tla2sany.xml.XMLExporter"),
-            new String'("-o"),
-            new String'("-r"),
-            new String'("-I"),
-            new String'(Ada.Directories.Containing_Directory (Module_Path)),
-            new String'(Module_Path)];
-      begin
-         GNAT.OS_Lib.Spawn
-           (Java_Path, Arguments, Temporary_FD, Return_Code, Err_To_Out => True);
-         Spawned := Return_Code = 0;
-         GNAT.OS_Lib.Close (Temporary_FD);
-         Temporary_FD := GNAT.OS_Lib.Invalid_FD;
-         for Argument of Arguments loop
-            GNAT.OS_Lib.Free (Argument);
-         end loop;
-      end;
-      if not Spawned then
-         declare
-            Diagnostic : constant String :=
-              (if Ada.Directories.Size (Temporary_Name.all) = 0
-               then "no diagnostic output"
-               else Read_File (Temporary_Name.all));
-            Last : constant Natural :=
-              Natural'Min (Diagnostic'Last, Diagnostic'First + 4_095);
-         begin
-            Ada.Directories.Delete_File (Temporary_Name.all);
-            GNAT.OS_Lib.Free (Temporary_Name);
-            raise Generation_Error
-              with "SANY XML export failed: "
-              & Diagnostic (Diagnostic'First .. Last);
-         end;
-      end if;
-      declare
-         Semantic_XML  : constant String := Read_File (Temporary_Name.all);
-         Semantic_Hash : constant GNAT.SHA256.Message_Digest := GNAT.SHA256.Digest (Semantic_XML);
-         XML_Root       : constant XML_Node_Access := Parse_XML (Semantic_XML);
+         Identity      : constant Flyology_TLA_Model_Identity.Identity :=
+           Flyology_TLA_Model_Identity.From_Semantic_XML
+             (Module_Path, Configuration_Path, To_String (Semantic_XML));
+         Source_SHA256 : constant String := To_String (Identity.Source_SHA256);
+         Config_SHA256 : constant String := To_String (Identity.Configuration_SHA256);
+         Semantic_Hash : constant String := To_String (Identity.Semantic_XML_SHA256);
+         XML_Root       : constant XML_Node_Access := Parse_XML (To_String (Semantic_XML));
          Context        : constant Context_Vectors.Vector := Build_Context (XML_Root);
          Root_Name      : constant String := Child_Text (XML_Root, "RootModule");
          Module_Node    : constant XML_Node_Access := Find_Root_Module (Context, Root_Name);
@@ -1414,20 +1329,6 @@ package body Flyology_TLA_Ada_Generation is
                Outcome);
          end;
       end;
-      Ada.Directories.Delete_File (Temporary_Name.all);
-      GNAT.OS_Lib.Free (Temporary_Name);
-   exception
-      when others =>
-         if Temporary_FD /= GNAT.OS_Lib.Invalid_FD then
-            GNAT.OS_Lib.Close (Temporary_FD);
-         end if;
-         if Temporary_Name /= null then
-            if Ada.Directories.Exists (Temporary_Name.all) then
-               Ada.Directories.Delete_File (Temporary_Name.all);
-            end if;
-            GNAT.OS_Lib.Free (Temporary_Name);
-         end if;
-         raise;
    end Generate;
 
 end Flyology_TLA_Ada_Generation;

@@ -47,6 +47,7 @@ package body Flyology_TLA.TLC_Traces is
       Module_Name        : String;
       Configuration      : String;
       Source_SHA256      : String;
+      Configuration_SHA256 : String;
       Toolchain_Identity : String;
       Limits             : Flyology_TLA.Traces.Load_Limits)
    is
@@ -77,6 +78,9 @@ package body Flyology_TLA.TLC_Traces is
          raise Flyology_TLA.Traces.Trace_Error with "configuration or toolchain identity is empty";
       elsif not Is_Lower_Hex_SHA256 (Source_SHA256) then
          raise Flyology_TLA.Traces.Trace_Error with "source SHA-256 is not canonical";
+      elsif not Is_Lower_Hex_SHA256 (Configuration_SHA256) then
+         raise Flyology_TLA.Traces.Trace_Error with
+           "configuration SHA-256 is not canonical";
       elsif Module_Name'Length > Limits.Maximum_String_Bytes
         or else Configuration'Length > Limits.Maximum_String_Bytes
         or else Toolchain_Identity'Length > Limits.Maximum_String_Bytes
@@ -168,12 +172,14 @@ package body Flyology_TLA.TLC_Traces is
          Ada.Text_IO.Create (Output, Ada.Text_IO.Out_File, Output_Path);
          Ada.Text_IO.Put
            (Output,
-            "{""format"":""flyology.tla.trace/1"",""model"":{""module"":"
+            "{""format"":""flyology.tla.trace/2"",""model"":{""module"":"
             & Flyology_TLA.JSON.Quote (Module_Name)
             & ",""configuration"":"
             & Flyology_TLA.JSON.Quote (Configuration)
             & ",""source_sha256"":"
             & Flyology_TLA.JSON.Quote (Source_SHA256)
+            & ",""configuration_sha256"":"
+            & Flyology_TLA.JSON.Quote (Configuration_SHA256)
             & ",""toolchain"":"
             & Flyology_TLA.JSON.Quote (Toolchain_Identity)
             & "},""initial"":{""state"":"

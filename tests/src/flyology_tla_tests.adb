@@ -131,6 +131,9 @@ begin
         Source (Source'First .. Source'Last - 1) & ",""unknown"":true}";
    begin
       Require
+        (Length (Trace.Model.Configuration_SHA256) = 64,
+         "current trace fixture did not load trace/2 configuration identity");
+      Require
         (To_String (Parsed_SHA256) = GNAT.SHA256.Digest (Source),
          "in-memory trace parse computed the wrong SHA-256");
       Require

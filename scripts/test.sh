@@ -29,12 +29,62 @@ digest()
 cd "$project_root"
 ./scripts/check-repository.sh
 alr -n build
+identity_root=$temporary_root/identity
+mkdir -p "$identity_root"
+cp tests/fixtures/IdentityRoot.tla "$identity_root/IdentityRoot.tla"
+cp tests/fixtures/IdentityHelper.tla "$identity_root/IdentityHelper.tla"
+cp tests/fixtures/IdentityRoot.cfg "$identity_root/IdentityRoot.cfg"
+identity_java=$project_root/tests/sandbox-bin/model-identity-java
+identity_jar=$project_root/tests/fixtures/fake-tla2tools.jar
+FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
+  ./bin/flyology-tla model identity \
+  "$identity_root/IdentityRoot.tla" --config "$identity_root/IdentityRoot.cfg" \
+  >"$temporary_root/identity-one.json"
+FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
+  ./bin/flyology-tla model identity \
+  "$identity_root/IdentityRoot.tla" --config "$identity_root/IdentityRoot.cfg" \
+  >"$temporary_root/identity-two.json"
+cmp "$temporary_root/identity-one.json" "$temporary_root/identity-two.json"
+grep -Fq '"format":"flyology.tla.model-identity/1"' \
+  "$temporary_root/identity-one.json"
+grep -Fq '"module":"IdentityRoot"' "$temporary_root/identity-one.json"
+source_one=$(sed -n 's/.*"source_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-one.json")
+configuration_one=$(sed -n 's/.*"configuration_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-one.json")
+printf '%s\n' '\* semantic helper change' >>"$identity_root/IdentityHelper.tla"
+FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
+  ./bin/flyology-tla model identity \
+  "$identity_root/IdentityRoot.tla" --config "$identity_root/IdentityRoot.cfg" \
+  >"$temporary_root/identity-helper-changed.json"
+source_helper_changed=$(sed -n 's/.*"source_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-helper-changed.json")
+configuration_helper_changed=$(sed -n \
+  's/.*"configuration_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-helper-changed.json")
+test "$source_one" != "$source_helper_changed"
+test "$configuration_one" = "$configuration_helper_changed"
+printf '%s\n' '\* semantic configuration change' >>"$identity_root/IdentityRoot.cfg"
+FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
+  ./bin/flyology-tla model identity \
+  "$identity_root/IdentityRoot.tla" --config "$identity_root/IdentityRoot.cfg" \
+  >"$temporary_root/identity-config-changed.json"
+source_configuration_changed=$(sed -n \
+  's/.*"source_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-config-changed.json")
+configuration_changed=$(sed -n \
+  's/.*"configuration_sha256":"\([^"]*\)".*/\1/p' \
+  "$temporary_root/identity-config-changed.json")
+test "$source_helper_changed" = "$source_configuration_changed"
+test "$configuration_helper_changed" != "$configuration_changed"
 ./bin/flyology-tla trace validate tests/fixtures/trace.json 10 20
-./bin/flyology-tla trace normalize \
+./bin/flyology-tla trace validate tests/fixtures/trace-v1.json 10 20
+FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
+  ./bin/flyology-tla trace normalize \
   tests/fixtures/tlc-counterexample.json "$temporary_root/normalized.json" \
-  Counter Counter.cfg \
-  0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-  tla2tools-1.8.0+9787e65 10 20
+  examples/counter/formal/Counter.tla \
+  --config examples/counter/formal/Counter.cfg \
+  --toolchain tla2tools-1.8.0+9787e65 10 20
 ./bin/flyology-tla trace validate "$temporary_root/normalized.json" 10 20
 cmp tests/fixtures/trace.json "$temporary_root/normalized.json"
 ./bin/flyology-tla trace prefix \
@@ -44,14 +94,19 @@ cmp tests/fixtures/trace-prefix-1.json "$temporary_root/prefix.json"
 expect_failure ./bin/flyology-tla trace validate tests/fixtures/invalid-duplicate.json 10 20
 expect_failure ./bin/flyology-tla trace validate tests/fixtures/invalid-unknown-member.json 10 20
 expect_failure ./bin/flyology-tla trace validate tests/fixtures/invalid-gap.json 10 20
+expect_failure ./bin/flyology-tla trace validate \
+  tests/fixtures/invalid-v2-missing-configuration-sha.json 10 20
+expect_failure ./bin/flyology-tla trace validate \
+  tests/fixtures/invalid-v2-configuration-sha.json 10 20
 expect_failure ./bin/flyology-tla trace validate tests/fixtures/trace.json 1 20
 expect_failure ./bin/flyology-tla trace prefix tests/fixtures/trace.json \
   "$temporary_root/too-long.json" 3 10 20
-expect_failure ./bin/flyology-tla trace normalize \
+expect_failure env FLYOLOGY_TLA_JAVA=$identity_java \
+  FLYOLOGY_TLA_TLC_JAR=$identity_jar ./bin/flyology-tla trace normalize \
   tests/fixtures/invalid-tlc-gap.json "$temporary_root/invalid-normalized.json" \
-  Counter Counter.cfg \
-  0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-  tla2tools-1.8.0+9787e65 10 20
+  examples/counter/formal/Counter.tla \
+  --config examples/counter/formal/Counter.cfg \
+  --toolchain tla2tools-1.8.0+9787e65 10 20
 test ! -e "$temporary_root/invalid-normalized.json"
 set +e
 ./bin/flyology-tla ada generate \

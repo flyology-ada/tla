@@ -114,15 +114,23 @@ package body Flyology_TLA.Traces is
          Source_SHA256 : constant String :=
            Flyology_TLA.JSON.String_Data
              (Source, Flyology_TLA.JSON.Member (Source, Model_Node, "source_sha256"));
+         Configuration_SHA256 : constant String :=
+           (if Format = "flyology.tla.trace/2"
+            then Flyology_TLA.JSON.String_Data
+              (Source,
+               Flyology_TLA.JSON.Member
+                 (Source, Model_Node, "configuration_sha256"))
+            else "");
          Toolchain : constant String :=
            Flyology_TLA.JSON.String_Data
              (Source, Flyology_TLA.JSON.Member (Source, Model_Node, "toolchain"));
          Step_Count : constant Natural := Flyology_TLA.JSON.Length (Source, Steps_Node);
       begin
-         if Format /= "flyology.tla.trace/1" then
+         if Format not in "flyology.tla.trace/1" | "flyology.tla.trace/2" then
             raise Trace_Error with "unsupported trace format";
          elsif Flyology_TLA.JSON.Object_Length (Source, Root) /= 4
-           or else Flyology_TLA.JSON.Object_Length (Source, Model_Node) /= 4
+           or else Flyology_TLA.JSON.Object_Length (Source, Model_Node) /=
+             (if Format = "flyology.tla.trace/2" then 5 else 4)
            or else Flyology_TLA.JSON.Object_Length (Source, Initial_Node) /= 1
          then
             raise Trace_Error with "trace envelope has unknown or missing members";
@@ -135,6 +143,10 @@ package body Flyology_TLA.Traces is
             raise Trace_Error with "model module is not a TLA+ identifier";
          elsif not Is_Lower_Hex_SHA256 (Source_SHA256) then
             raise Trace_Error with "model source_sha256 is not canonical";
+         elsif Format = "flyology.tla.trace/2"
+           and then not Is_Lower_Hex_SHA256 (Configuration_SHA256)
+         then
+            raise Trace_Error with "model configuration_sha256 is not canonical";
          elsif Step_Count > Limits.Maximum_Steps then
             raise Trace_Error with "trace step count exceeds caller limit";
          end if;
@@ -142,10 +154,11 @@ package body Flyology_TLA.Traces is
          Check_String (Configuration, Limits.Maximum_String_Bytes, "configuration");
          Check_String (Toolchain, Limits.Maximum_String_Bytes, "toolchain identity");
          Result.Model :=
-           (Module_Name        => To_Unbounded_String (Module_Name),
-            Configuration      => To_Unbounded_String (Configuration),
-            Source_SHA256      => To_Unbounded_String (Source_SHA256),
-            Toolchain_Identity => To_Unbounded_String (Toolchain));
+           (Module_Name          => To_Unbounded_String (Module_Name),
+            Configuration        => To_Unbounded_String (Configuration),
+            Source_SHA256        => To_Unbounded_String (Source_SHA256),
+            Configuration_SHA256 => To_Unbounded_String (Configuration_SHA256),
+            Toolchain_Identity   => To_Unbounded_String (Toolchain));
          declare
             Initial_State : constant String :=
               Flyology_TLA.JSON.Canonical_Image
@@ -238,12 +251,20 @@ package body Flyology_TLA.Traces is
       end if;
       Append
         (Result,
-         "{""format"":""flyology.tla.trace/1"",""model"":{""module"":"
+         "{""format"":""flyology.tla.trace/"
+         & (if Length (Item.Model.Configuration_SHA256) = 0 then "1" else "2")
+         & """,""model"":{""module"":"
          & Flyology_TLA.JSON.Quote (To_String (Item.Model.Module_Name))
          & ",""configuration"":"
          & Flyology_TLA.JSON.Quote (To_String (Item.Model.Configuration))
          & ",""source_sha256"":"
          & Flyology_TLA.JSON.Quote (To_String (Item.Model.Source_SHA256))
+         & (if Length (Item.Model.Configuration_SHA256) = 0
+            then ""
+            else
+              ",""configuration_sha256"":"
+              & Flyology_TLA.JSON.Quote
+                  (To_String (Item.Model.Configuration_SHA256)))
          & ",""toolchain"":"
          & Flyology_TLA.JSON.Quote (To_String (Item.Model.Toolchain_Identity))
          & "},""initial"":{""state"":"

@@ -1,0 +1,1 @@
+{"format":"flyology.tla.trace/2","model":{"module":"Counter","configuration":"Counter.cfg","source_sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","toolchain":"tla2tools-1.8.0+9787e65"},"initial":{"state":{"count":0}},"steps":[]}

@@ -90,7 +90,9 @@ the raw JSON counterexample:
 An intentional witness invariant exits with TLC status 12. Normalize only after checking that exact expected failure:
 
 ```sh
-flyology-tla trace normalize RAW TRACE MODULE CONFIG SOURCE_SHA256 TOOLCHAIN_ID MAX_STEPS MAX_JSON_DEPTH
+flyology-tla model identity MODULE.tla --config MODEL.cfg
+flyology-tla trace normalize RAW TRACE MODULE.tla --config MODEL.cfg \
+  --toolchain TOOLCHAIN_ID MAX_STEPS MAX_JSON_DEPTH
 flyology-tla trace validate TRACE MAX_STEPS MAX_JSON_DEPTH
 ```
 
@@ -111,7 +113,11 @@ It requires the four environment variables emitted by `toolchain env`.
 
 ## Contract decisions
 
-- Trace format: one canonical `flyology.tla.trace/1` JSON document, not NDJSON. The original TLC dump remains evidence.
+- Trace format: new traces are canonical `flyology.tla.trace/2` JSON documents, not NDJSON. Version 2 binds the
+  SANY-resolved local-module closure and exact configuration bytes; version 1 remains readable. The original TLC dump
+  remains evidence.
+- Model identity: `model identity` is the authoritative source/configuration hashing command. Normalization and typed
+  generation call the same implementation instead of accepting consumer-computed provenance.
 - In-memory envelopes: `Traces.Parse`/`Image` and `Reporting.Parse_JSON` let isolated adapters embed strict shared
   trace/result artifacts without temporary files or private codecs.
 - Nondeterminism: the trace materializes every implementation-relevant choice in `input`; replay uses no randomness.
@@ -157,7 +163,8 @@ overridden explicitly on the command line; the example supplies its reviewed def
 ./scripts/test.sh
 ```
 
-This builds warning-strict Ada, byte-compares normalization, validates strict envelopes and prefix reproduction,
+This builds warning-strict Ada, proves model identity changes for included-module and configuration edits,
+byte-compares normalization, validates strict envelopes and prefix reproduction,
 checks conformant/divergent result artifacts, exercises the toolchain installer hermetically (including tamper and
 broad-root rejection), tests terse/verbose/JSON application reporting and argument failures, and builds the nested
 Alire consumer. When toolchain environment variables are present it also runs the actual TLC/TLAPM gate and the

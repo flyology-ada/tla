@@ -8,6 +8,7 @@ package Flyology_TLA.TLC_Traces is
       Module_Name        : String;
       Configuration      : String;
       Source_SHA256      : String;
+      Configuration_SHA256 : String;
       Toolchain_Identity : String;
       Limits             : Flyology_TLA.Traces.Load_Limits);
 

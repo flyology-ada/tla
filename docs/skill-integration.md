@@ -7,7 +7,9 @@ alr -n build
 alr -n install --prefix "$absolute_prefix"
 "$absolute_prefix/bin/flyology-tla" --help
 alr -n with flyology_tla --use "$absolute_checkout"
-flyology-tla trace normalize RAW TRACE MODULE CFG SOURCE_SHA256 TOOLCHAIN MAX_STEPS MAX_DEPTH
+flyology-tla model identity MODULE.tla --config MODEL.cfg
+flyology-tla trace normalize RAW TRACE MODULE.tla --config MODEL.cfg \
+  --toolchain TOOLCHAIN MAX_STEPS MAX_DEPTH
 flyology-tla trace validate TRACE MAX_STEPS MAX_DEPTH
 flyology-tla trace prefix TRACE REPRO FAILURE_STEP MAX_STEPS MAX_DEPTH
 flyology-tla ada generate MODULE.tla --config MODEL.cfg --package PACKAGE --output DIRECTORY
@@ -22,6 +24,10 @@ Always distinguish TLC bounded exploration, TLAPS theorem proof, and Ada conform
 failure status/message for witness extraction, canonical normalization, explicit resource limits, deterministic inputs,
 first-divergence reporting, preservation of full evidence, and same property/fingerprint for any model-aware reduction.
 Never copy the repository's desktop-sandbox `ps` fixture into a consumer or toolchain setup.
+
+Treat `model identity` as authoritative provenance. Its source digest covers the byte-framed, sorted SANY-resolved
+local-module closure; its configuration digest covers exact configuration bytes. Do not substitute a digest of only
+the root `.tla` file.
 
 Prefer the generated typed adapter. The consuming package extends `PACKAGE.Adapter`; its `Apply` receives typed
 `Input_Type` and returns typed `Outcome_Type` and `State_Type`. Every root TLA+ variable is present in `State_Type`.
