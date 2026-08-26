@@ -11,3 +11,7 @@
 *.pyc
 __pycache__/
 *.DS_Store
+
+
+# APM dependencies
+apm_modules/
