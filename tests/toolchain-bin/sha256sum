@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+file=
+for argument in "$@"
+do
+  file=$argument
+done
+case "$file" in
+  */tla2tools.jar)
+    printf '%s  %s\n' eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a "$file"
+    ;;
+  */tlapm.tar.gz)
+    printf '%s  %s\n' ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde "$file"
+    ;;
+  */tlaps/bin/tlapm)
+    printf '%s  %s\n' 291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7 "$file"
+    ;;
+  *) exec /sbin/sha256sum "$@" ;;
+esac

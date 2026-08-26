@@ -1,0 +1,7 @@
+name: flyology-tla-repository
+version: 0.1.0
+description: Repository-specific instructions for the Flyology TLA+ harness.
+type: instructions
+targets: [codex, claude]
+instructions:
+  - path: instructions/project.instructions.md

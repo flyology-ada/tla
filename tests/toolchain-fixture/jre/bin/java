@@ -1,0 +1,4 @@
+#!/bin/sh
+printf '%s\n' '    java.vendor = Eclipse Adoptium' >&2
+printf '%s\n' '    java.version = 21.0.99-test' >&2
+printf '%s\n' 'openjdk version "21.0.99-test"' >&2

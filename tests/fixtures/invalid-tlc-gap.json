@@ -1,0 +1,1 @@
+{"counterexample":{"state":[[1,{"state":{"count":0}}],[3,{"action":"Increment","input":{"delta":1},"outcome":{"accepted":true},"state":{"count":1}}]]}}

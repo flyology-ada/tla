@@ -1,0 +1,13 @@
+/alire/
+/bin/
+/build/
+/config/
+/.flyology-tla/
+/.tlacache/
+/.agents/
+/.claude/rules/
+/.claude/skills/
+/apm_modules/
+*.pyc
+__pycache__/
+*.DS_Store

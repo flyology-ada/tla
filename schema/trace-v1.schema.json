@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flyology.org/tla/schema/trace-v1.schema.json",
+  "title": "Flyology TLA+ materialized conformance trace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "model", "initial", "steps"],
+  "properties": {
+    "format": {"const": "flyology.tla.trace/1"},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "configuration", "source_sha256", "toolchain"],
+      "properties": {
+        "module": {"type": "string", "minLength": 1},
+        "configuration": {"type": "string", "minLength": 1},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "toolchain": {"type": "string", "minLength": 1}
+      }
+    },
+    "initial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {"state": true}
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "action", "input", "expected", "model_source"],
+        "properties": {
+          "index": {"type": "integer", "minimum": 1},
+          "action": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*![A-Za-z_][A-Za-z0-9_]*$"},
+          "role": {"type": "string", "minLength": 1},
+          "input": true,
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["outcome", "state"],
+            "properties": {"outcome": true, "state": true}
+          },
+          "model_source": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*![A-Za-z_][A-Za-z0-9_]*$"}
+        }
+      }
+    }
+  }
+}

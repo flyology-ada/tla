@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flyology.org/tla/schema/result-v1.schema.json",
+  "title": "Flyology TLA+ Ada conformance result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "verdict", "trace_sha256", "compared_steps", "failure"],
+  "properties": {
+    "format": {"const": "flyology.tla.result/1"},
+    "verdict": {"enum": ["conformant", "diverged", "adapter-error", "invalid-trace"]},
+    "trace_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "compared_steps": {"type": "integer", "minimum": 0},
+    "failure": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["step", "property", "fingerprint", "detail"],
+          "properties": {
+            "step": {"type": "integer", "minimum": 0},
+            "property": {"type": "string", "minLength": 1},
+            "fingerprint": {"type": "string", "minLength": 1},
+            "detail": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  }
+}

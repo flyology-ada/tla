@@ -1,0 +1,8 @@
+#!/bin/sh
+if test "${1:-}" = --version
+then
+  printf '%s\n' 4600b24
+else
+  printf '%s\n' 'test-only TLAPM fixture' >&2
+  exit 1
+fi

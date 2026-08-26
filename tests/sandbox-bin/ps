@@ -1,0 +1,14 @@
+#!/bin/sh
+# The desktop sandbox denies /bin/ps. TLAPM probes `ps -l` at startup, so the
+# repository gate supplies a parseable process-group row for that capability
+# probe. It is not installed and is never used by the provisioned toolchain.
+case " $* " in
+  *" -o pid,ppid,pid "*)
+    printf '%s\n' ' PID PPID PID'
+    printf '%s\n' ' 1 0 1'
+    ;;
+  *)
+    printf '%s\n' '  UID   PID  PPID CPU PRI NI      VSZ    RSS WCHAN STAT TT       TIME COMMAND'
+    printf '%s\n' '  501     1     0   0  31  0        0      0 -     Ss   ??    0:00.00 tlapm'
+    ;;
+esac

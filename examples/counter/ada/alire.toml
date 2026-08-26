@@ -1,0 +1,20 @@
+name = "counter_conformance"
+description = "Example consumer of the Flyology TLA+ Ada replay harness"
+version = "0.1.0-dev"
+
+authors = ["Yurii Rashkovskii"]
+maintainers = ["Yurii Rashkovskii <yrashk@gmail.com>"]
+maintainers-logins = ["yrashk"]
+licenses = "MIT OR Apache-2.0"
+tags = ["example", "tla", "conformance"]
+project-files = ["counter_conformance.gpr"]
+executables = ["counter-conformance"]
+
+[build-switches]
+"*" = { Compile_Checks = "warnings" }
+
+[[depends-on]]
+flyology_tla = "~0.1.0-dev"
+
+[[pins]]
+flyology_tla = { path='../../..' }

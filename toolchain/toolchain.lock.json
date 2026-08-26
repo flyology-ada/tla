@@ -1,0 +1,33 @@
+{
+  "format": "flyology.tla.toolchain-lock/1",
+  "tla_tools": {
+    "version": "1.8.0",
+    "revision": "9787e65",
+    "asset_id": 523952485,
+    "url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+    "sha256": "eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a"
+  },
+  "tlaps": {
+    "version": "1.6.0-pre",
+    "revision": "4600b24",
+    "platforms": {
+      "darwin-aarch64": {
+        "asset_id": 496778183,
+        "url": "https://github.com/tlaplus/tlapm/releases/download/1.6.0-pre/tlapm-1.6.0-pre-arm64-darwin.tar.gz",
+        "sha256": "ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde",
+        "tlapm_sha256": "291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7"
+      },
+      "linux-x86_64": {
+        "asset_id": 496770904,
+        "url": "https://github.com/tlaplus/tlapm/releases/download/1.6.0-pre/tlapm-1.6.0-pre-x86_64-linux-gnu.tar.gz",
+        "sha256": "bfa5e5350ac1ec7202feecad0a4a71a5bb58c16a49660448b35b6f371ba9e2f5"
+      }
+    }
+  },
+  "java": {
+    "distribution": "Eclipse Temurin",
+    "feature_version": 21,
+    "selection": "latest-ga-at-install-time",
+    "api": "https://api.adoptium.net/v3/binary/latest/21/ga/{os}/{arch}/jre/hotspot/normal/eclipse"
+  }
+}

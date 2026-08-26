@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flyology.org/tla/schema/toolchain-receipt-v1.schema.json",
+  "title": "Flyology TLA+ installed toolchain receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "platform", "tla_tools", "tlaps", "java"],
+  "properties": {
+    "format": {"const": "flyology.tla.toolchain-receipt/1"},
+    "platform": {"enum": ["darwin-aarch64", "linux-x86_64"]},
+    "tla_tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "sha256"],
+      "properties": {
+        "version": {"const": "1.8.0"},
+        "revision": {"const": "9787e65"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "tlaps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "tlapm_sha256"],
+      "properties": {
+        "version": {"const": "1.6.0-pre"},
+        "revision": {"const": "4600b24"},
+        "tlapm_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "java": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distribution", "feature_version", "resolved_version", "archive_sha256", "java_sha256"],
+      "properties": {
+        "distribution": {"const": "Eclipse Temurin"},
+        "feature_version": {"const": 21},
+        "resolved_version": {"type": "string", "pattern": "^21[.][A-Za-z0-9._+-]*$"},
+        "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "java_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
