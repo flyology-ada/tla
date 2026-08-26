@@ -1,12 +1,138 @@
+with Ada.Exceptions;
 with Ada.Strings;
 with Ada.Strings.Fixed;
-with Ada.Strings.Unbounded;
+with Flyology_TLA.JSON;
 with Flyology_TLA.Result_Encoding;
 
 package body Flyology_TLA.Reporting is
 
    use Ada.Strings.Unbounded;
+   use type Flyology_TLA.JSON.Value_Kind;
    use type Flyology_TLA.Replay.Verdict;
+
+   function Is_Lower_Hex_SHA256 (Value : String) return Boolean is
+     (Value'Length = 64
+      and then (for all Item of Value => Item in '0' .. '9' | 'a' .. 'f'));
+
+   procedure Check_String
+     (Value : String; Limit : Positive; Label : String)
+   is
+   begin
+      if Value'Length = 0 then
+         raise Result_Error with Label & " is empty";
+      elsif Value'Length > Limit then
+         raise Result_Error with Label & " exceeds caller limit";
+      end if;
+   end Check_String;
+
+   function Decode_Verdict (Value : String) return Flyology_TLA.Replay.Verdict is
+   begin
+      if Value = "conformant" then
+         return Flyology_TLA.Replay.Conformant;
+      elsif Value = "diverged" then
+         return Flyology_TLA.Replay.Diverged;
+      elsif Value = "adapter-error" then
+         return Flyology_TLA.Replay.Adapter_Error;
+      elsif Value = "invalid-trace" then
+         return Flyology_TLA.Replay.Invalid_Trace;
+      else
+         raise Result_Error with "unsupported result verdict";
+      end if;
+   end Decode_Verdict;
+
+   function Parse_JSON
+     (Source       : String;
+      Limits       : Flyology_TLA.Traces.Load_Limits;
+      Trace_SHA256 : out Unbounded_String)
+      return Flyology_TLA.Replay.Replay_Result
+   is
+      Root   : Flyology_TLA.JSON.Value;
+      Result : Flyology_TLA.Replay.Replay_Result;
+   begin
+      if Source'Length > Limits.Maximum_File_Bytes then
+         raise Result_Error with "result source exceeds caller byte limit";
+      end if;
+      Flyology_TLA.JSON.Validate
+        (Source,
+         Limits.Maximum_JSON_Depth,
+         Limits.Maximum_Name_Bytes,
+         Limits.Maximum_Object_Names);
+      Root := Flyology_TLA.JSON.Root (Source);
+      declare
+         Format : constant String :=
+           Flyology_TLA.JSON.String_Data
+             (Source, Flyology_TLA.JSON.Member (Source, Root, "format"));
+         Verdict_Text : constant String :=
+           Flyology_TLA.JSON.String_Data
+             (Source, Flyology_TLA.JSON.Member (Source, Root, "verdict"));
+         Trace_Identity : constant String :=
+           Flyology_TLA.JSON.String_Data
+             (Source, Flyology_TLA.JSON.Member (Source, Root, "trace_sha256"));
+         Compared_Steps : constant Natural :=
+           Flyology_TLA.JSON.Natural_Data
+             (Source, Flyology_TLA.JSON.Member (Source, Root, "compared_steps"));
+         Failure_Node : constant Flyology_TLA.JSON.Value :=
+           Flyology_TLA.JSON.Member (Source, Root, "failure");
+         Status : constant Flyology_TLA.Replay.Verdict :=
+           Decode_Verdict (Verdict_Text);
+      begin
+         if Flyology_TLA.JSON.Kind (Root) /= Flyology_TLA.JSON.Object_Value
+           or else Flyology_TLA.JSON.Object_Length (Source, Root) /= 5
+         then
+            raise Result_Error with "result envelope has unknown or missing members";
+         elsif Format /= "flyology.tla.result/1" then
+            raise Result_Error with "unsupported result format";
+         elsif not Is_Lower_Hex_SHA256 (Trace_Identity) then
+            raise Result_Error with "result trace_sha256 is not canonical";
+         elsif Compared_Steps > Limits.Maximum_Steps then
+            raise Result_Error with "result compared step count exceeds caller limit";
+         end if;
+         Check_String (Verdict_Text, Limits.Maximum_String_Bytes, "result verdict");
+         Result.Status := Status;
+         Result.Compared_Steps := Compared_Steps;
+         if Status = Flyology_TLA.Replay.Conformant then
+            if Flyology_TLA.JSON.Kind (Failure_Node) /= Flyology_TLA.JSON.Null_Value then
+               raise Result_Error with "conformant result has a failure object";
+            end if;
+         else
+            if Flyology_TLA.JSON.Kind (Failure_Node) /= Flyology_TLA.JSON.Object_Value
+              or else Flyology_TLA.JSON.Object_Length (Source, Failure_Node) /= 4
+            then
+               raise Result_Error with "nonconformant result has an invalid failure object";
+            end if;
+            declare
+               Step : constant Natural :=
+                 Flyology_TLA.JSON.Natural_Data
+                   (Source, Flyology_TLA.JSON.Member (Source, Failure_Node, "step"));
+               Property : constant String :=
+                 Flyology_TLA.JSON.String_Data
+                   (Source, Flyology_TLA.JSON.Member (Source, Failure_Node, "property"));
+               Fingerprint : constant String :=
+                 Flyology_TLA.JSON.String_Data
+                   (Source, Flyology_TLA.JSON.Member (Source, Failure_Node, "fingerprint"));
+               Detail : constant String :=
+                 Flyology_TLA.JSON.String_Data
+                   (Source, Flyology_TLA.JSON.Member (Source, Failure_Node, "detail"));
+            begin
+               if Step > Limits.Maximum_Steps then
+                  raise Result_Error with "result failure step exceeds caller limit";
+               end if;
+               Check_String (Property, Limits.Maximum_String_Bytes, "result property");
+               Check_String (Fingerprint, Limits.Maximum_String_Bytes, "result fingerprint");
+               Check_String (Detail, Limits.Maximum_Value_Bytes, "result detail");
+               Result.Failure_Step := Step;
+               Result.Property_Name := To_Unbounded_String (Property);
+               Result.Fingerprint := To_Unbounded_String (Fingerprint);
+               Result.Detail := To_Unbounded_String (Detail);
+            end;
+         end if;
+         Trace_SHA256 := To_Unbounded_String (Trace_Identity);
+      end;
+      return Result;
+   exception
+      when Error : Flyology_TLA.JSON.JSON_Error =>
+         raise Result_Error with Ada.Exceptions.Exception_Message (Error);
+   end Parse_JSON;
 
    function Escape (Value : String) return String is
       Hex    : constant String := "0123456789abcdef";
@@ -47,7 +173,8 @@ package body Flyology_TLA.Reporting is
      (case Value is
         when Flyology_TLA.Replay.Conformant    => "conformant",
         when Flyology_TLA.Replay.Diverged      => "diverged",
-        when Flyology_TLA.Replay.Adapter_Error => "adapter-error");
+        when Flyology_TLA.Replay.Adapter_Error => "adapter-error",
+        when Flyology_TLA.Replay.Invalid_Trace => "invalid-trace");
 
    function Value_Or (Value : Unbounded_String; Fallback : String) return String is
      (if Length (Value) = 0 then Fallback else Escape (To_String (Value)));

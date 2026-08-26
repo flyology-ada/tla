@@ -16,7 +16,8 @@ package body Flyology_TLA.Result_Encoding is
         (case Item.Status is
            when Flyology_TLA.Replay.Conformant    => "conformant",
            when Flyology_TLA.Replay.Diverged      => "diverged",
-           when Flyology_TLA.Replay.Adapter_Error => "adapter-error");
+           when Flyology_TLA.Replay.Adapter_Error => "adapter-error",
+           when Flyology_TLA.Replay.Invalid_Trace => "invalid-trace");
       Result : Unbounded_String;
    begin
       if Trace_SHA256'Length /= 64

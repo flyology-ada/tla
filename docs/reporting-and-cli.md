@@ -7,7 +7,10 @@ human-report lines. Human wording is deterministic and tested, but is not a vers
 
 `JSON_Image`, `Put_JSON`, and `Write_JSON` produce the stable `flyology.tla.result/1` representation described by
 `schema/result-v1.schema.json`. The older `Flyology_TLA.Replay.Write_Result` operation remains a compatibility wrapper
-over the same encoder.
+over the same encoder. `Parse_JSON` strictly decodes the representation in memory, returns its referenced trace
+SHA-256 separately for caller binding, rejects duplicate, unknown, and missing members, and applies the caller's
+trace load limits to the result document. All schema verdicts, including `invalid-trace`, are represented by
+`Flyology_TLA.Replay.Verdict`.
 
 ## Reusable runner arguments
 

@@ -55,7 +55,7 @@ package Flyology_TLA.Replay is
       Limits                : Flyology_TLA.Traces.Load_Limits;
       Result                : out Comparison);
 
-   type Verdict is (Conformant, Diverged, Adapter_Error);
+   type Verdict is (Conformant, Diverged, Adapter_Error, Invalid_Trace);
 
    type Replay_Result is record
       Status         : Verdict := Adapter_Error;

@@ -112,6 +112,8 @@ It requires the four environment variables emitted by `toolchain env`.
 ## Contract decisions
 
 - Trace format: one canonical `flyology.tla.trace/1` JSON document, not NDJSON. The original TLC dump remains evidence.
+- In-memory envelopes: `Traces.Parse`/`Image` and `Reporting.Parse_JSON` let isolated adapters embed strict shared
+  trace/result artifacts without temporary files or private codecs.
 - Nondeterminism: the trace materializes every implementation-relevant choice in `input`; replay uses no randomness.
 - Naming: actions and model sources are qualified `Module!Action`; optional `role` is the stable adapter dispatch role.
 - Oracle: default comparison is structural JSON equality. Whitespace, object order, and equivalent string escaping do

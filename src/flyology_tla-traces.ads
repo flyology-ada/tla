@@ -41,6 +41,14 @@ package Flyology_TLA.Traces is
       Steps              : Step_Vectors.Vector;
    end record;
 
+   function Parse (Source : String; Limits : Load_Limits) return Trace;
+
+   function Parse
+     (Source : String;
+      Limits : Load_Limits;
+      SHA256 : out Ada.Strings.Unbounded.Unbounded_String) return Trace;
+   --  SHA256 is computed from the same byte string accepted by the parser.
+
    function Load (Path : String; Limits : Load_Limits) return Trace;
 
    function Load
@@ -48,6 +56,11 @@ package Flyology_TLA.Traces is
       Limits : Load_Limits;
       SHA256 : out Ada.Strings.Unbounded.Unbounded_String) return Trace;
    --  SHA256 is computed from the same byte string accepted by the parser.
+
+   function Image
+     (Item              : Trace;
+      Last_Step_To_Keep : Natural) return String;
+   --  Return the canonical trace envelope without a trailing line terminator.
 
    procedure Write_Prefix
      (Item              : Trace;

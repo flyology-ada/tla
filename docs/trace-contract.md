@@ -5,6 +5,12 @@ enforces the envelope, rejects duplicate or unknown members, validates qualified
 SHA-256, requires contiguous step indices beginning at one, canonicalizes nested JSON values, and applies every
 caller-supplied resource limit.
 
+`Flyology_TLA.Traces.Parse` accepts an in-memory trace and can return the SHA-256 of those exact source bytes.
+`Load` is the bounded file-reading wrapper over the same parser. `Image` returns a canonical full trace or modeled
+prefix without a trailing line terminator; `Write_Prefix` writes that same representation plus its file line ending.
+This lets process-isolated consumers embed the shared trace in their own envelopes without temporary files or a
+second trace codec.
+
 ## TLC alias projection
 
 TLC's raw JSON must contain `counterexample.state`, whose entries are `[ordinal, alias]`. The initial alias supplies

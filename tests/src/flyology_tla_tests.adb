@@ -6,6 +6,7 @@ with Ada.Text_IO;
 with Flyology_TLA.Replay;
 with Flyology_TLA.Reporting;
 with Flyology_TLA.Traces;
+with GNAT.SHA256;
 
 procedure Flyology_TLA_Tests is
 
@@ -74,13 +75,6 @@ procedure Flyology_TLA_Tests is
       Outcome := (Succeeded => True, Detail => Null_Unbounded_String);
    end Apply;
 
-   procedure Require (Condition : Boolean; Message : String) is
-   begin
-      if not Condition then
-         raise Program_Error with Message;
-      end if;
-   end Require;
-
    Limits : constant Flyology_TLA.Traces.Load_Limits :=
      (Maximum_File_Bytes   => 100_000,
       Maximum_Steps        => 10,
@@ -89,6 +83,36 @@ procedure Flyology_TLA_Tests is
       Maximum_Name_Bytes   => 1_000,
       Maximum_String_Bytes => 10_000,
       Maximum_Value_Bytes  => 50_000);
+
+   procedure Require (Condition : Boolean; Message : String) is
+   begin
+      if not Condition then
+         raise Program_Error with Message;
+      end if;
+   end Require;
+
+   procedure Require_Trace_Error (Source : String; Message : String) is
+      Ignored : Flyology_TLA.Traces.Trace;
+   begin
+      Ignored := Flyology_TLA.Traces.Parse (Source, Limits);
+      raise Program_Error with Message;
+   exception
+      when Flyology_TLA.Traces.Trace_Error =>
+         null;
+   end Require_Trace_Error;
+
+   procedure Require_Result_Error (Source : String; Message : String) is
+      Ignored_SHA256 : Unbounded_String;
+      Ignored_Result : Flyology_TLA.Replay.Replay_Result;
+   begin
+      Ignored_Result :=
+        Flyology_TLA.Reporting.Parse_JSON (Source, Limits, Ignored_SHA256);
+      raise Program_Error with Message;
+   exception
+      when Flyology_TLA.Reporting.Result_Error =>
+         null;
+   end Require_Result_Error;
+
    Trace : constant Flyology_TLA.Traces.Trace :=
      Flyology_TLA.Traces.Load (Ada.Command_Line.Argument (1), Limits);
    Adapter : Counter_Adapter;
@@ -97,6 +121,29 @@ procedure Flyology_TLA_Tests is
      Character'Val (16#E2#) & Character'Val (16#98#) & Character'Val (16#83#);
 
 begin
+   declare
+      Source : constant String :=
+        Flyology_TLA.Traces.Image (Trace, Natural (Trace.Steps.Length));
+      Parsed_SHA256 : Unbounded_String;
+      Parsed : constant Flyology_TLA.Traces.Trace :=
+        Flyology_TLA.Traces.Parse (Source, Limits, Parsed_SHA256);
+      With_Unknown_Member : constant String :=
+        Source (Source'First .. Source'Last - 1) & ",""unknown"":true}";
+   begin
+      Require
+        (To_String (Parsed_SHA256) = GNAT.SHA256.Digest (Source),
+         "in-memory trace parse computed the wrong SHA-256");
+      Require
+        (Flyology_TLA.Traces.Image (Parsed, Natural (Parsed.Steps.Length)) = Source,
+         "in-memory trace parse/image did not round trip canonically");
+      Require_Trace_Error
+        (With_Unknown_Member,
+         "in-memory trace parse accepted an unknown envelope member");
+      Require_Trace_Error
+        ("{""format"":""flyology.tla.trace/1"",""format"":""flyology.tla.trace/1""}",
+         "in-memory trace parse accepted a duplicate envelope member");
+   end;
+
    Flyology_TLA.Replay.Run (Adapter, Trace, Limits, Result);
    Require (Result.Status = Flyology_TLA.Replay.Conformant, "counter trace did not conform");
    Require (Result.Compared_Steps = 2, "wrong conformance step count");
@@ -117,6 +164,30 @@ begin
      (Result,
       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       Ada.Command_Line.Argument (2));
+   declare
+      Trace_Identity : constant String :=
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+      Source : constant String :=
+        Flyology_TLA.Reporting.JSON_Image (Result, Trace_Identity);
+      Parsed_Trace_Identity : Unbounded_String;
+      Parsed : constant Flyology_TLA.Replay.Replay_Result :=
+        Flyology_TLA.Reporting.Parse_JSON
+          (Source, Limits, Parsed_Trace_Identity);
+      With_Unknown_Member : constant String :=
+        Source (Source'First .. Source'Last - 1) & ",""unknown"":true}";
+   begin
+      Require
+        (Parsed.Status = Flyology_TLA.Replay.Conformant
+         and then Parsed.Compared_Steps = 2
+         and then To_String (Parsed_Trace_Identity) = Trace_Identity,
+         "strict result decoder changed a conformant result");
+      Require_Result_Error
+        (With_Unknown_Member,
+         "strict result decoder accepted an unknown envelope member");
+      Require_Result_Error
+        ("{""format"":""flyology.tla.result/1"",""format"":""flyology.tla.result/1""}",
+         "strict result decoder accepted a duplicate envelope member");
+   end;
 
    Adapter.Diverge := True;
    Flyology_TLA.Replay.Run (Adapter, Trace, Limits, Result);
@@ -172,5 +243,28 @@ begin
         & "Fingerprint: adapter\\fault" & ASCII.LF
         & "Detail: line one\nline two " & UTF8_Snowman,
       "verbose report did not escape controls or preserve UTF-8 bytes");
+   declare
+      Trace_Identity : constant String :=
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+      Invalid : constant Flyology_TLA.Replay.Replay_Result :=
+        (Status         => Flyology_TLA.Replay.Invalid_Trace,
+         Compared_Steps => 0,
+         Failure_Step   => 0,
+         Property_Name  => To_Unbounded_String ("trace-envelope"),
+         Fingerprint    => To_Unbounded_String ("invalid-trace"),
+         Detail         => To_Unbounded_String ("trace is malformed"));
+      Parsed_Trace_Identity : Unbounded_String;
+      Parsed : constant Flyology_TLA.Replay.Replay_Result :=
+        Flyology_TLA.Reporting.Parse_JSON
+          (Flyology_TLA.Reporting.JSON_Image (Invalid, Trace_Identity),
+           Limits,
+           Parsed_Trace_Identity);
+   begin
+      Require
+        (Parsed.Status = Flyology_TLA.Replay.Invalid_Trace
+         and then To_String (Parsed.Fingerprint) = "invalid-trace"
+         and then To_String (Parsed_Trace_Identity) = Trace_Identity,
+         "strict result decoder cannot represent the schema invalid-trace verdict");
+   end;
    Ada.Text_IO.Put_Line ("flyology_tla replay tests passed");
 end Flyology_TLA_Tests;

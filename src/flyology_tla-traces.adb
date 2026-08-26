@@ -67,9 +67,27 @@ package body Flyology_TLA.Traces is
    is
       Source : constant String :=
         Flyology_TLA.JSON.Read_File (Path, Limits.Maximum_File_Bytes);
+   begin
+      return Parse (Source, Limits, SHA256);
+   end Load;
+
+   function Parse (Source : String; Limits : Load_Limits) return Trace is
+      Ignored_SHA256 : Unbounded_String;
+   begin
+      return Parse (Source, Limits, Ignored_SHA256);
+   end Parse;
+
+   function Parse
+     (Source : String;
+      Limits : Load_Limits;
+      SHA256 : out Unbounded_String) return Trace
+   is
       Root   : Flyology_TLA.JSON.Value;
       Result : Trace;
    begin
+      if Source'Length > Limits.Maximum_File_Bytes then
+         raise Trace_Error with "trace source exceeds caller byte limit";
+      end if;
       SHA256 := To_Unbounded_String (GNAT.SHA256.Digest (Source));
       Flyology_TLA.JSON.Validate
         (Source,
@@ -207,21 +225,19 @@ package body Flyology_TLA.Traces is
    exception
       when Error : Flyology_TLA.JSON.JSON_Error =>
          raise Trace_Error with Ada.Exceptions.Exception_Message (Error);
-   end Load;
+   end Parse;
 
-   procedure Write_Prefix
+   function Image
      (Item              : Trace;
-      Last_Step_To_Keep : Natural;
-      Path              : String)
+      Last_Step_To_Keep : Natural) return String
    is
-      Output : Ada.Text_IO.File_Type;
+      Result : Unbounded_String;
    begin
       if Last_Step_To_Keep > Natural (Item.Steps.Length) then
          raise Trace_Error with "prefix length exceeds trace step count";
       end if;
-      Ada.Text_IO.Create (Output, Ada.Text_IO.Out_File, Path);
-      Ada.Text_IO.Put
-        (Output,
+      Append
+        (Result,
          "{""format"":""flyology.tla.trace/1"",""model"":{""module"":"
          & Flyology_TLA.JSON.Quote (To_String (Item.Model.Module_Name))
          & ",""configuration"":"
@@ -239,10 +255,10 @@ package body Flyology_TLA.Traces is
                Step : Trace_Step renames Item.Steps (Index);
             begin
                if Index > 1 then
-                  Ada.Text_IO.Put (Output, ',');
+                  Append (Result, ',');
                end if;
-               Ada.Text_IO.Put
-                 (Output,
+               Append
+                 (Result,
                   "{""index"":"
                   & Ada.Strings.Fixed.Trim (Natural'Image (Index), Ada.Strings.Both)
                   & ",""action"":"
@@ -261,7 +277,19 @@ package body Flyology_TLA.Traces is
             end;
          end loop;
       end if;
-      Ada.Text_IO.Put_Line (Output, "]}");
+      Append (Result, "]}");
+      return To_String (Result);
+   end Image;
+
+   procedure Write_Prefix
+     (Item              : Trace;
+      Last_Step_To_Keep : Natural;
+      Path              : String)
+   is
+      Output : Ada.Text_IO.File_Type;
+   begin
+      Ada.Text_IO.Create (Output, Ada.Text_IO.Out_File, Path);
+      Ada.Text_IO.Put_Line (Output, Image (Item, Last_Step_To_Keep));
       Ada.Text_IO.Close (Output);
    exception
       when others =>
