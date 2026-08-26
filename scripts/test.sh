@@ -126,11 +126,24 @@ alr -n build
 ./bin/flyology-tla-tests \
   "$project_root/tests/fixtures/trace.json" \
   "$temporary_root/result-conformant.json" \
-  "$temporary_root/result-diverged.json"
+  "$temporary_root/result-diverged.json" \
+  "$temporary_root/result-v2-conformant.json" \
+  "$temporary_root/result-v2-state-diverged.json" \
+  "$temporary_root/result-v2-outcome-diverged.json" \
+  "$temporary_root/result-v2-adapter-error.json"
 cmp "$project_root/tests/fixtures/result-conformant.json" \
   "$temporary_root/result-conformant.json"
 cmp "$project_root/tests/fixtures/result-diverged.json" \
   "$temporary_root/result-diverged.json"
+for result_name in \
+  result-v2-conformant \
+  result-v2-state-diverged \
+  result-v2-outcome-diverged \
+  result-v2-adapter-error
+do
+  cmp "$project_root/tests/fixtures/$result_name.json" \
+    "$temporary_root/$result_name.json"
+done
 
 trace_path=$project_root/tests/fixtures/trace.json
 ./bin/flyology-tla-command-line-probe "$trace_path" \

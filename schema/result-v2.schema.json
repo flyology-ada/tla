@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flyology.org/tla/schema/result-v2.schema.json",
+  "title": "Flyology TLA+ Ada structured conformance result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "verdict", "trace_sha256", "compared_steps", "failure"],
+  "properties": {
+    "format": {"const": "flyology.tla.result/2"},
+    "verdict": {"enum": ["conformant", "diverged", "adapter-error", "invalid-trace"]},
+    "trace_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "compared_steps": {"type": "integer", "minimum": 0},
+    "failure": {"type": ["object", "null"]}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "verdict": {"const": "conformant"},
+        "failure": {"type": "null"}
+      }
+    },
+    {
+      "properties": {
+        "verdict": {"const": "diverged"},
+        "failure": {"$ref": "#/$defs/divergedFailure"}
+      }
+    },
+    {
+      "properties": {
+        "verdict": {"enum": ["adapter-error", "invalid-trace"]},
+        "failure": {"$ref": "#/$defs/noncomparisonFailure"}
+      }
+    }
+  ],
+  "$defs": {
+    "failureFields": {
+      "step": {"type": "integer", "minimum": 0},
+      "property": {"type": "string", "minLength": 1},
+      "fingerprint": {"type": "string", "minLength": 1},
+      "detail": {"type": "string", "minLength": 1}
+    },
+    "noncomparisonFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "property", "fingerprint", "detail"],
+      "properties": {
+        "step": {"$ref": "#/$defs/failureFields/step"},
+        "property": {"$ref": "#/$defs/failureFields/property"},
+        "fingerprint": {"$ref": "#/$defs/failureFields/fingerprint"},
+        "detail": {"$ref": "#/$defs/failureFields/detail"}
+      }
+    },
+    "divergedFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "property", "fingerprint", "detail", "observed"],
+      "properties": {
+        "step": {"$ref": "#/$defs/failureFields/step"},
+        "property": {"$ref": "#/$defs/failureFields/property"},
+        "fingerprint": {"$ref": "#/$defs/failureFields/fingerprint"},
+        "detail": {"$ref": "#/$defs/failureFields/detail"},
+        "observed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "state"],
+          "properties": {
+            "outcome": true,
+            "state": true
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"step": {"const": 0}}, "required": ["step"]},
+          "then": {"properties": {"observed": {"properties": {"outcome": {"type": "null"}}}}},
+          "else": {"properties": {"step": {"minimum": 1}}}
+        }
+      ]
+    }
+  }
+}

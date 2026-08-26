@@ -40,7 +40,12 @@ package Flyology_TLA.Command_Line is
      (Config : Configuration;
       Result : Flyology_TLA.Replay.Replay_Result);
 
+   procedure Report
+     (Config : Configuration;
+      Result : Flyology_TLA.Replay.Replay_Result_V2);
+
    procedure Set_Exit_Status (Result : Flyology_TLA.Replay.Replay_Result);
+   procedure Set_Exit_Status (Result : Flyology_TLA.Replay.Replay_Result_V2);
 
    procedure Put_Help;
    procedure Put_Help (Application_Flags : Application_Flag_Array);

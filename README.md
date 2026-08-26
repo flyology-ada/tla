@@ -128,6 +128,8 @@ It requires the four environment variables emitted by `toolchain env`.
 - Limits: callers provide all file, step, depth, name, string, and value limits. There are no library defaults.
 - Reproduction: keep the full trace and result. `trace prefix` may retain the prefix through the first failure;
   arbitrary step deletion is not claimed to preserve a modeled behavior.
+- Results: result/1 remains strict and supported. Explicit result/2 APIs add bounded observed outcome/state JSON for
+  divergence without duplicating expected values from the exact SHA-256-bound trace.
 - JSON dependency: all `flyology_json` imports are isolated in private package `Flyology_TLA.JSON` for a later serde
   migration without changing the public harness API.
 - Typed adapters: SANY-derived packages expose records/enums/ranges only; JSON is confined to generated codec code and

@@ -6,6 +6,71 @@ package body Flyology_TLA.Replay is
 
    use Ada.Strings.Unbounded;
 
+   function Canonical_Observation
+     (Source : String;
+      Limits : Flyology_TLA.Traces.Load_Limits) return String
+   is
+     (Flyology_TLA.JSON.Canonical_Value
+        (Source,
+         Limits.Maximum_JSON_Depth,
+         Limits.Maximum_Name_Bytes,
+         Limits.Maximum_Object_Names,
+         Limits.Maximum_String_Bytes,
+         Limits.Maximum_Value_Bytes));
+
+   function To_Version_2 (Summary : Replay_Result) return Replay_Result_V2 is
+     ((Summary => Summary, Observed => (Kind => No_Observation)));
+
+   function With_Initial_Observation
+     (Summary             : Replay_Result;
+      Observed_State_JSON : String;
+      Limits              : Flyology_TLA.Traces.Load_Limits) return Replay_Result_V2
+   is
+     (Summary  => Summary,
+      Observed =>
+        (Kind               => Initial_State_Observation,
+         Initial_State_JSON =>
+           To_Unbounded_String
+             (Canonical_Observation (Observed_State_JSON, Limits))));
+
+   function With_Step_Observation
+     (Summary               : Replay_Result;
+      Observed_Outcome_JSON : String;
+      Observed_State_JSON   : String;
+      Limits                : Flyology_TLA.Traces.Load_Limits) return Replay_Result_V2
+   is
+     (Summary  => Summary,
+      Observed =>
+        (Kind              => Step_Observation,
+         Step_Outcome_JSON =>
+           To_Unbounded_String
+             (Canonical_Observation (Observed_Outcome_JSON, Limits)),
+         Step_State_JSON   =>
+           To_Unbounded_String
+             (Canonical_Observation (Observed_State_JSON, Limits))));
+
+   function Outcome_JSON (Item : Observed_Comparison) return String is
+   begin
+      case Item.Kind is
+         when Step_Observation =>
+            return To_String (Item.Step_Outcome_JSON);
+         when No_Observation | Initial_State_Observation =>
+            return "";
+      end case;
+   end Outcome_JSON;
+
+   function State_JSON (Item : Observed_Comparison) return String is
+   begin
+      case Item.Kind is
+         when Initial_State_Observation =>
+            return To_String (Item.Initial_State_JSON);
+         when Step_Observation =>
+            return To_String (Item.Step_State_JSON);
+         when No_Observation =>
+            return "";
+      end case;
+   end State_JSON;
+
    procedure Compare_Initial_State
      (Self          : in out Adapter;
       Expected_JSON : String;
@@ -76,44 +141,72 @@ package body Flyology_TLA.Replay is
       Limits : Flyology_TLA.Traces.Load_Limits;
       Result : out Replay_Result)
    is
+      Detailed : Replay_Result_V2;
+   begin
+      Run (Self, Trace, Limits, Detailed);
+      Result := Detailed.Summary;
+   end Run;
+
+   procedure Run
+     (Self   : in out Adapter'Class;
+      Trace  : Flyology_TLA.Traces.Trace;
+      Limits : Flyology_TLA.Traces.Load_Limits;
+      Result : out Replay_Result_V2)
+   is
       Adapter_Result : Adapter_Outcome;
       Observed_State : Unbounded_String;
       Compared       : Comparison;
       Current_Step   : Natural := 0;
    begin
       Result :=
-        (Status         => Adapter_Error,
-         Compared_Steps => 0,
-         Failure_Step   => 0,
-         Property_Name  => To_Unbounded_String ("tla-conformance"),
-         Fingerprint    => Null_Unbounded_String,
-         Detail         => Null_Unbounded_String);
+        (Summary =>
+           (Status         => Adapter_Error,
+            Compared_Steps => 0,
+            Failure_Step   => 0,
+            Property_Name  => To_Unbounded_String ("tla-conformance"),
+            Fingerprint    => Null_Unbounded_String,
+            Detail         => Null_Unbounded_String),
+         Observed => (Kind => No_Observation));
       Self.Reset (Observed_State, Adapter_Result);
       if not Adapter_Result.Succeeded then
-         Result.Fingerprint := To_Unbounded_String ("adapter-reset");
-         Result.Detail := Adapter_Result.Detail;
+         Result.Summary.Fingerprint := To_Unbounded_String ("adapter-reset");
+         Result.Summary.Detail := Adapter_Result.Detail;
          return;
       end if;
       if Length (Observed_State) > Limits.Maximum_Value_Bytes then
-         Result.Fingerprint := To_Unbounded_String ("adapter-observation-limit:reset");
-         Result.Detail := To_Unbounded_String ("adapter initial state exceeds caller value limit");
+         Result.Summary.Fingerprint :=
+           To_Unbounded_String ("adapter-observation-limit:reset");
+         Result.Summary.Detail :=
+           To_Unbounded_String ("adapter initial state exceeds caller value limit");
          return;
       end if;
+      declare
+         Canonical_State : Unbounded_String;
       begin
+         Canonical_State := To_Unbounded_String
+           (Canonical_Observation (To_String (Observed_State), Limits));
          Self.Compare_Initial_State
-           (To_String (Trace.Initial_State_JSON), To_String (Observed_State), Limits, Compared);
+           (To_String (Trace.Initial_State_JSON),
+            To_String (Observed_State),
+            Limits,
+            Compared);
+         if not Compared.Equivalent then
+            Result.Summary.Status := Diverged;
+            Result.Summary.Fingerprint := Compared.Fingerprint;
+            Result.Summary.Detail := Compared.Detail;
+            Result.Observed :=
+              (Kind               => Initial_State_Observation,
+               Initial_State_JSON => Canonical_State);
+            return;
+         end if;
       exception
          when Error : Flyology_TLA.JSON.JSON_Error =>
-            Result.Fingerprint := To_Unbounded_String ("adapter-observation-json:reset");
-            Result.Detail := To_Unbounded_String (Ada.Exceptions.Exception_Message (Error));
+            Result.Summary.Fingerprint :=
+              To_Unbounded_String ("adapter-observation-json:reset");
+            Result.Summary.Detail :=
+              To_Unbounded_String (Ada.Exceptions.Exception_Message (Error));
             return;
       end;
-      if not Compared.Equivalent then
-         Result.Status := Diverged;
-         Result.Fingerprint := Compared.Fingerprint;
-         Result.Detail := Compared.Detail;
-         return;
-      end if;
       for Step of Trace.Steps loop
          Current_Step := Step.Index;
          declare
@@ -131,22 +224,30 @@ package body Flyology_TLA.Replay is
                Observed_State,
                Adapter_Result);
             if not Adapter_Result.Succeeded then
-               Result.Failure_Step := Step.Index;
-               Result.Fingerprint := To_Unbounded_String ("adapter:" & To_String (Step.Action));
-               Result.Detail := Adapter_Result.Detail;
+               Result.Summary.Failure_Step := Step.Index;
+               Result.Summary.Fingerprint :=
+                 To_Unbounded_String ("adapter:" & To_String (Step.Action));
+               Result.Summary.Detail := Adapter_Result.Detail;
                return;
             end if;
             if Length (Observed_Outcome) > Limits.Maximum_Value_Bytes
               or else Length (Observed_State) > Limits.Maximum_Value_Bytes
             then
-               Result.Failure_Step := Step.Index;
-               Result.Fingerprint :=
+               Result.Summary.Failure_Step := Step.Index;
+               Result.Summary.Fingerprint :=
                  To_Unbounded_String ("adapter-observation-limit:" & To_String (Step.Action));
-               Result.Detail :=
+               Result.Summary.Detail :=
                  To_Unbounded_String ("adapter outcome or state exceeds caller value limit");
                return;
             end if;
+            declare
+               Canonical_Outcome : Unbounded_String;
+               Canonical_State   : Unbounded_String;
             begin
+               Canonical_Outcome := To_Unbounded_String
+                 (Canonical_Observation (To_String (Observed_Outcome), Limits));
+               Canonical_State := To_Unbounded_String
+                 (Canonical_Observation (To_String (Observed_State), Limits));
                Self.Compare_Step
                  (Command,
                   To_String (Step.Expected_Outcome_JSON),
@@ -155,35 +256,51 @@ package body Flyology_TLA.Replay is
                   To_String (Observed_State),
                   Limits,
                   Compared);
+               Result.Summary.Compared_Steps := Step.Index;
+               if not Compared.Equivalent then
+                  Result.Summary.Status := Diverged;
+                  Result.Summary.Failure_Step := Step.Index;
+                  Result.Summary.Fingerprint := Compared.Fingerprint;
+                  Result.Summary.Detail := Compared.Detail;
+                  Result.Observed :=
+                    (Kind              => Step_Observation,
+                     Step_Outcome_JSON => Canonical_Outcome,
+                     Step_State_JSON   => Canonical_State);
+                  return;
+               end if;
             exception
                when Error : Flyology_TLA.JSON.JSON_Error =>
-                  Result.Failure_Step := Step.Index;
-                  Result.Fingerprint :=
+                  Result.Summary.Failure_Step := Step.Index;
+                  Result.Summary.Fingerprint :=
                     To_Unbounded_String ("adapter-observation-json:" & To_String (Step.Action));
-                  Result.Detail := To_Unbounded_String (Ada.Exceptions.Exception_Message (Error));
+                  Result.Summary.Detail :=
+                    To_Unbounded_String (Ada.Exceptions.Exception_Message (Error));
                   return;
             end;
-            Result.Compared_Steps := Step.Index;
-            if not Compared.Equivalent then
-               Result.Status := Diverged;
-               Result.Failure_Step := Step.Index;
-               Result.Fingerprint := Compared.Fingerprint;
-               Result.Detail := Compared.Detail;
-               return;
-            end if;
          end;
       end loop;
-      Result.Status := Conformant;
+      Result.Summary.Status := Conformant;
    exception
       when Error : others =>
-         Result.Status := Adapter_Error;
-         Result.Failure_Step := Current_Step;
-         Result.Fingerprint := To_Unbounded_String ("adapter-exception");
-         Result.Detail := To_Unbounded_String (Ada.Exceptions.Exception_Information (Error));
+         Result.Summary.Status := Adapter_Error;
+         Result.Summary.Failure_Step := Current_Step;
+         Result.Summary.Fingerprint := To_Unbounded_String ("adapter-exception");
+         Result.Summary.Detail :=
+           To_Unbounded_String (Ada.Exceptions.Exception_Information (Error));
+         Result.Observed := (Kind => No_Observation);
    end Run;
 
    procedure Write_Result
      (Item         : Replay_Result;
+      Trace_SHA256 : String;
+      Path         : String)
+   is
+   begin
+      Flyology_TLA.Reporting.Write_JSON (Item, Trace_SHA256, Path);
+   end Write_Result;
+
+   procedure Write_Result
+     (Item         : Replay_Result_V2;
       Trace_SHA256 : String;
       Path         : String)
    is

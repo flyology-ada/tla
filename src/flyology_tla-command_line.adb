@@ -344,12 +344,46 @@ package body Flyology_TLA.Command_Line is
       end case;
    end Report;
 
+   procedure Report
+     (Config : Configuration;
+      Result : Flyology_TLA.Replay.Replay_Result_V2)
+   is
+      Needs_JSON : constant Boolean :=
+        Config.Selected_Format = JSON_Output or else Length (Config.JSON_Path) > 0;
+   begin
+      if Needs_JSON and then Length (Config.Trace_SHA256) = 0 then
+         raise Program_Error with
+           "cannot report JSON before loading the configured trace";
+      end if;
+      if Length (Config.JSON_Path) > 0 then
+         Flyology_TLA.Reporting.Write_JSON
+           (Result,
+            To_String (Config.Trace_SHA256),
+            To_String (Config.JSON_Path));
+      end if;
+      case Config.Selected_Format is
+         when Terse_Output =>
+            Flyology_TLA.Reporting.Put (Result, Flyology_TLA.Reporting.Terse);
+         when Verbose_Output =>
+            Flyology_TLA.Reporting.Put (Result, Flyology_TLA.Reporting.Verbose);
+         when JSON_Output =>
+            Flyology_TLA.Reporting.Put_JSON
+              (Result, To_String (Config.Trace_SHA256));
+      end case;
+   end Report;
+
    procedure Set_Exit_Status (Result : Flyology_TLA.Replay.Replay_Result) is
    begin
       Ada.Command_Line.Set_Exit_Status
         (if Result.Status = Flyology_TLA.Replay.Conformant
          then Ada.Command_Line.Success
          else Ada.Command_Line.Failure);
+   end Set_Exit_Status;
+
+   procedure Set_Exit_Status
+     (Result : Flyology_TLA.Replay.Replay_Result_V2) is
+   begin
+      Set_Exit_Status (Result.Summary);
    end Set_Exit_Status;
 
    procedure Put_Help_To
@@ -365,7 +399,7 @@ package body Flyology_TLA.Command_Line is
       Ada.Text_IO.Put_Line
         (File, "  --format terse|verbose|json   stdout format (default: terse)");
       Ada.Text_IO.Put_Line
-        (File, "  --result-json PATH            also write flyology.tla.result/1 JSON");
+        (File, "  --result-json PATH            also write selected result contract JSON");
       Ada.Text_IO.Put_Line (File, "  --max-file-bytes N");
       Ada.Text_IO.Put_Line (File, "  --max-steps N");
       Ada.Text_IO.Put_Line (File, "  --max-json-depth N");

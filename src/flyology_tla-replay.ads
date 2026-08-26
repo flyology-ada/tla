@@ -66,15 +66,66 @@ package Flyology_TLA.Replay is
       Detail         : Ada.Strings.Unbounded.Unbounded_String;
    end record;
 
+   type Observation_Kind is
+     (No_Observation, Initial_State_Observation, Step_Observation);
+
+   type Observed_Comparison
+     (Kind : Observation_Kind := No_Observation) is private;
+
+   type Replay_Result_V2 is record
+      Summary  : Replay_Result;
+      Observed : Observed_Comparison;
+   end record;
+
+   function To_Version_2 (Summary : Replay_Result) return Replay_Result_V2;
+   function With_Initial_Observation
+     (Summary             : Replay_Result;
+      Observed_State_JSON : String;
+      Limits              : Flyology_TLA.Traces.Load_Limits) return Replay_Result_V2;
+   function With_Step_Observation
+     (Summary               : Replay_Result;
+      Observed_Outcome_JSON : String;
+      Observed_State_JSON   : String;
+      Limits                : Flyology_TLA.Traces.Load_Limits) return Replay_Result_V2;
+
+   function Outcome_JSON (Item : Observed_Comparison) return String;
+   function State_JSON (Item : Observed_Comparison) return String;
+
    procedure Run
      (Self   : in out Adapter'Class;
       Trace  : Flyology_TLA.Traces.Trace;
       Limits : Flyology_TLA.Traces.Load_Limits;
       Result : out Replay_Result);
 
+   procedure Run
+     (Self   : in out Adapter'Class;
+      Trace  : Flyology_TLA.Traces.Trace;
+      Limits : Flyology_TLA.Traces.Load_Limits;
+      Result : out Replay_Result_V2);
+
    procedure Write_Result
      (Item         : Replay_Result;
       Trace_SHA256 : String;
       Path         : String);
+
+   procedure Write_Result
+     (Item         : Replay_Result_V2;
+      Trace_SHA256 : String;
+      Path         : String);
+
+private
+
+   type Observed_Comparison
+     (Kind : Observation_Kind := No_Observation) is record
+      case Kind is
+         when No_Observation =>
+            null;
+         when Initial_State_Observation =>
+            Initial_State_JSON : Ada.Strings.Unbounded.Unbounded_String;
+         when Step_Observation =>
+            Step_Outcome_JSON : Ada.Strings.Unbounded.Unbounded_String;
+            Step_State_JSON   : Ada.Strings.Unbounded.Unbounded_String;
+      end case;
+   end record;
 
 end Flyology_TLA.Replay;

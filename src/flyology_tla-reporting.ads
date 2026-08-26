@@ -16,8 +16,20 @@ package Flyology_TLA.Reporting is
       return Flyology_TLA.Replay.Replay_Result;
    --  Strictly decode flyology.tla.result/1 and return its referenced trace.
 
+   function Parse_JSON_V2
+     (Source       : String;
+      Limits       : Flyology_TLA.Traces.Load_Limits;
+      Trace_SHA256 : out Ada.Strings.Unbounded.Unbounded_String)
+      return Flyology_TLA.Replay.Replay_Result_V2;
+   --  Strictly decode flyology.tla.result/2. Embedded observations are
+   --  returned as canonical JSON values.
+
    function Image
      (Result : Flyology_TLA.Replay.Replay_Result;
+      Level  : Verbosity) return String;
+
+   function Image
+     (Result : Flyology_TLA.Replay.Replay_Result_V2;
       Level  : Verbosity) return String;
 
    function JSON_Image
@@ -25,8 +37,16 @@ package Flyology_TLA.Reporting is
       Trace_SHA256 : String) return String;
    --  Trace_SHA256 identifies the exact bytes replayed by the caller.
 
+   function JSON_Image
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
+      Trace_SHA256 : String) return String;
+
    procedure Put
      (Result : Flyology_TLA.Replay.Replay_Result;
+      Level  : Verbosity);
+
+   procedure Put
+     (Result : Flyology_TLA.Replay.Replay_Result_V2;
       Level  : Verbosity);
 
    procedure Put
@@ -34,8 +54,17 @@ package Flyology_TLA.Reporting is
       Result : Flyology_TLA.Replay.Replay_Result;
       Level  : Verbosity);
 
+   procedure Put
+     (File   : Ada.Text_IO.File_Type;
+      Result : Flyology_TLA.Replay.Replay_Result_V2;
+      Level  : Verbosity);
+
    procedure Put_JSON
      (Result       : Flyology_TLA.Replay.Replay_Result;
+      Trace_SHA256 : String);
+
+   procedure Put_JSON
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
       Trace_SHA256 : String);
 
    procedure Put_JSON
@@ -43,8 +72,18 @@ package Flyology_TLA.Reporting is
       Result       : Flyology_TLA.Replay.Replay_Result;
       Trace_SHA256 : String);
 
+   procedure Put_JSON
+     (File         : Ada.Text_IO.File_Type;
+      Result       : Flyology_TLA.Replay.Replay_Result_V2;
+      Trace_SHA256 : String);
+
    procedure Write_JSON
      (Result       : Flyology_TLA.Replay.Replay_Result;
+      Trace_SHA256 : String;
+      Path         : String);
+
+   procedure Write_JSON
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
       Trace_SHA256 : String;
       Path         : String);
 
