@@ -1,0 +1,1 @@
+{"format":"flyology.tla.result/2","verdict":"adapter-error","trace_sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","compared_steps":0,"failure":{"step":1,"property":"tla-conformance","fingerprint":"adapter:Counter!Increment","detail":"adapter failed"}}

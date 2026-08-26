@@ -8,6 +8,7 @@ package body Flyology_TLA.Reporting is
 
    use Ada.Strings.Unbounded;
    use type Flyology_TLA.JSON.Value_Kind;
+   use type Flyology_TLA.Replay.Observation_Kind;
    use type Flyology_TLA.Replay.Verdict;
 
    function Is_Lower_Hex_SHA256 (Value : String) return Boolean is
@@ -40,14 +41,16 @@ package body Flyology_TLA.Reporting is
       end if;
    end Decode_Verdict;
 
-   function Parse_JSON
+   function Parse_Document
      (Source       : String;
       Limits       : Flyology_TLA.Traces.Load_Limits;
+      Expected_Format : String;
       Trace_SHA256 : out Unbounded_String)
-      return Flyology_TLA.Replay.Replay_Result
+      return Flyology_TLA.Replay.Replay_Result_V2
    is
-      Root   : Flyology_TLA.JSON.Value;
-      Result : Flyology_TLA.Replay.Replay_Result;
+      Root     : Flyology_TLA.JSON.Value;
+      Summary  : Flyology_TLA.Replay.Replay_Result;
+      Detailed : Flyology_TLA.Replay.Replay_Result_V2;
    begin
       if Source'Length > Limits.Maximum_File_Bytes then
          raise Result_Error with "result source exceeds caller byte limit";
@@ -80,7 +83,7 @@ package body Flyology_TLA.Reporting is
            or else Flyology_TLA.JSON.Object_Length (Source, Root) /= 5
          then
             raise Result_Error with "result envelope has unknown or missing members";
-         elsif Format /= "flyology.tla.result/1" then
+         elsif Format /= Expected_Format then
             raise Result_Error with "unsupported result format";
          elsif not Is_Lower_Hex_SHA256 (Trace_Identity) then
             raise Result_Error with "result trace_sha256 is not canonical";
@@ -88,15 +91,19 @@ package body Flyology_TLA.Reporting is
             raise Result_Error with "result compared step count exceeds caller limit";
          end if;
          Check_String (Verdict_Text, Limits.Maximum_String_Bytes, "result verdict");
-         Result.Status := Status;
-         Result.Compared_Steps := Compared_Steps;
+         Summary.Status := Status;
+         Summary.Compared_Steps := Compared_Steps;
          if Status = Flyology_TLA.Replay.Conformant then
             if Flyology_TLA.JSON.Kind (Failure_Node) /= Flyology_TLA.JSON.Null_Value then
                raise Result_Error with "conformant result has a failure object";
             end if;
          else
             if Flyology_TLA.JSON.Kind (Failure_Node) /= Flyology_TLA.JSON.Object_Value
-              or else Flyology_TLA.JSON.Object_Length (Source, Failure_Node) /= 4
+              or else Flyology_TLA.JSON.Object_Length (Source, Failure_Node) /=
+                (if Expected_Format = "flyology.tla.result/2"
+                   and then Status = Flyology_TLA.Replay.Diverged
+                 then 5
+                 else 4)
             then
                raise Result_Error with "nonconformant result has an invalid failure object";
             end if;
@@ -120,19 +127,132 @@ package body Flyology_TLA.Reporting is
                Check_String (Property, Limits.Maximum_String_Bytes, "result property");
                Check_String (Fingerprint, Limits.Maximum_String_Bytes, "result fingerprint");
                Check_String (Detail, Limits.Maximum_Value_Bytes, "result detail");
-               Result.Failure_Step := Step;
-               Result.Property_Name := To_Unbounded_String (Property);
-               Result.Fingerprint := To_Unbounded_String (Fingerprint);
-               Result.Detail := To_Unbounded_String (Detail);
+               Summary.Failure_Step := Step;
+               Summary.Property_Name := To_Unbounded_String (Property);
+               Summary.Fingerprint := To_Unbounded_String (Fingerprint);
+               Summary.Detail := To_Unbounded_String (Detail);
+
+               if Expected_Format = "flyology.tla.result/2"
+                 and then Status = Flyology_TLA.Replay.Diverged
+               then
+                  declare
+                     Observed_Node : constant Flyology_TLA.JSON.Value :=
+                       Flyology_TLA.JSON.Member (Source, Failure_Node, "observed");
+                  begin
+                     if Flyology_TLA.JSON.Kind (Observed_Node) /=
+                       Flyology_TLA.JSON.Object_Value
+                       or else Flyology_TLA.JSON.Object_Length
+                         (Source, Observed_Node) /= 2
+                     then
+                        raise Result_Error with
+                          "diverged result/2 has an invalid observed object";
+                     end if;
+                     declare
+                        Outcome_Node : constant Flyology_TLA.JSON.Value :=
+                          Flyology_TLA.JSON.Member (Source, Observed_Node, "outcome");
+                        State_Node : constant Flyology_TLA.JSON.Value :=
+                          Flyology_TLA.JSON.Member (Source, Observed_Node, "state");
+                        State : constant String := Flyology_TLA.JSON.Canonical_Value
+                          (Flyology_TLA.JSON.Image (Source, State_Node),
+                           Limits.Maximum_JSON_Depth,
+                           Limits.Maximum_Name_Bytes,
+                           Limits.Maximum_Object_Names,
+                           Limits.Maximum_String_Bytes,
+                           Limits.Maximum_Value_Bytes);
+                     begin
+                        if Step = 0 then
+                           if Flyology_TLA.JSON.Kind (Outcome_Node) /=
+                             Flyology_TLA.JSON.Null_Value
+                           then
+                              raise Result_Error with
+                                "initial divergence observed outcome is not null";
+                           end if;
+                             Detailed :=
+                               Flyology_TLA.Replay.With_Initial_Observation
+                               (Summary, State, Limits);
+                        else
+                           declare
+                              Outcome : constant String :=
+                                Flyology_TLA.JSON.Canonical_Value
+                                  (Flyology_TLA.JSON.Image (Source, Outcome_Node),
+                                   Limits.Maximum_JSON_Depth,
+                                   Limits.Maximum_Name_Bytes,
+                                   Limits.Maximum_Object_Names,
+                                   Limits.Maximum_String_Bytes,
+                                   Limits.Maximum_Value_Bytes);
+                           begin
+                              Detailed :=
+                                Flyology_TLA.Replay.With_Step_Observation
+                                  (Summary, Outcome, State, Limits);
+                           end;
+                        end if;
+                     end;
+                  end;
+               end if;
             end;
+         end if;
+
+         if Expected_Format = "flyology.tla.result/2" then
+            case Status is
+               when Flyology_TLA.Replay.Conformant =>
+                  Detailed := Flyology_TLA.Replay.To_Version_2 (Summary);
+               when Flyology_TLA.Replay.Diverged =>
+                  if Summary.Compared_Steps /= Summary.Failure_Step then
+                     raise Result_Error with
+                       "diverged result/2 failure is not a completed comparison";
+                  end if;
+               when Flyology_TLA.Replay.Adapter_Error =>
+                  if Summary.Failure_Step = 0 then
+                     if Summary.Compared_Steps /= 0 then
+                        raise Result_Error with
+                          "reset adapter-error result/2 has compared steps";
+                     end if;
+                  elsif Summary.Failure_Step - 1 /= Summary.Compared_Steps then
+                     raise Result_Error with
+                       "adapter-error result/2 failure does not follow compared steps";
+                  end if;
+                  Detailed := Flyology_TLA.Replay.To_Version_2 (Summary);
+               when Flyology_TLA.Replay.Invalid_Trace =>
+                  if Summary.Failure_Step /= 0
+                    or else Summary.Compared_Steps /= 0
+                  then
+                     raise Result_Error with
+                       "invalid-trace result/2 has replay comparison state";
+                  end if;
+                  Detailed := Flyology_TLA.Replay.To_Version_2 (Summary);
+            end case;
+         else
+            Detailed := Flyology_TLA.Replay.To_Version_2 (Summary);
          end if;
          Trace_SHA256 := To_Unbounded_String (Trace_Identity);
       end;
-      return Result;
+      return Detailed;
    exception
       when Error : Flyology_TLA.JSON.JSON_Error =>
          raise Result_Error with Ada.Exceptions.Exception_Message (Error);
+   end Parse_Document;
+
+   function Parse_JSON
+     (Source       : String;
+      Limits       : Flyology_TLA.Traces.Load_Limits;
+      Trace_SHA256 : out Unbounded_String)
+      return Flyology_TLA.Replay.Replay_Result
+   is
+      Detailed : constant Flyology_TLA.Replay.Replay_Result_V2 :=
+        Parse_Document
+          (Source, Limits, "flyology.tla.result/1", Trace_SHA256);
+   begin
+      return Detailed.Summary;
    end Parse_JSON;
+
+   function Parse_JSON_V2
+     (Source       : String;
+      Limits       : Flyology_TLA.Traces.Load_Limits;
+      Trace_SHA256 : out Unbounded_String)
+      return Flyology_TLA.Replay.Replay_Result_V2
+   is
+     (Parse_Document
+        (Source, Limits, "flyology.tla.result/2", Trace_SHA256));
 
    function Escape (Value : String) return String is
       Hex    : constant String := "0123456789abcdef";
@@ -225,14 +345,55 @@ package body Flyology_TLA.Reporting is
       end case;
    end Image;
 
+   function Image
+     (Result : Flyology_TLA.Replay.Replay_Result_V2;
+      Level  : Verbosity) return String
+   is
+      Base : constant String := Image (Result.Summary, Level);
+   begin
+      if Level = Terse then
+         return Base;
+      elsif Result.Observed.Kind = Flyology_TLA.Replay.No_Observation then
+         return
+           Base & ASCII.LF
+           & "Observed outcome: none" & ASCII.LF
+           & "Observed state: none";
+      else
+         return
+           Base & ASCII.LF
+           & "Observed outcome: "
+           & (if Result.Observed.Kind =
+               Flyology_TLA.Replay.Initial_State_Observation
+              then "none"
+              else Escape (Flyology_TLA.Replay.Outcome_JSON (Result.Observed)))
+           & ASCII.LF
+           & "Observed state: "
+           & Escape (Flyology_TLA.Replay.State_JSON (Result.Observed));
+      end if;
+   end Image;
+
    function JSON_Image
      (Result       : Flyology_TLA.Replay.Replay_Result;
       Trace_SHA256 : String) return String
    is
      (Flyology_TLA.Result_Encoding.JSON_Image (Result, Trace_SHA256));
 
+   function JSON_Image
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
+      Trace_SHA256 : String) return String
+   is
+     (Flyology_TLA.Result_Encoding.JSON_Image (Result, Trace_SHA256));
+
    procedure Put
      (Result : Flyology_TLA.Replay.Replay_Result;
+      Level  : Verbosity)
+   is
+   begin
+      Put (Ada.Text_IO.Standard_Output, Result, Level);
+   end Put;
+
+   procedure Put
+     (Result : Flyology_TLA.Replay.Replay_Result_V2;
       Level  : Verbosity)
    is
    begin
@@ -248,8 +409,25 @@ package body Flyology_TLA.Reporting is
       Ada.Text_IO.Put_Line (File, Image (Result, Level));
    end Put;
 
+   procedure Put
+     (File   : Ada.Text_IO.File_Type;
+      Result : Flyology_TLA.Replay.Replay_Result_V2;
+      Level  : Verbosity)
+   is
+   begin
+      Ada.Text_IO.Put_Line (File, Image (Result, Level));
+   end Put;
+
    procedure Put_JSON
      (Result       : Flyology_TLA.Replay.Replay_Result;
+      Trace_SHA256 : String)
+   is
+   begin
+      Put_JSON (Ada.Text_IO.Standard_Output, Result, Trace_SHA256);
+   end Put_JSON;
+
+   procedure Put_JSON
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
       Trace_SHA256 : String)
    is
    begin
@@ -265,8 +443,35 @@ package body Flyology_TLA.Reporting is
       Ada.Text_IO.Put_Line (File, JSON_Image (Result, Trace_SHA256));
    end Put_JSON;
 
+   procedure Put_JSON
+     (File         : Ada.Text_IO.File_Type;
+      Result       : Flyology_TLA.Replay.Replay_Result_V2;
+      Trace_SHA256 : String)
+   is
+   begin
+      Ada.Text_IO.Put_Line (File, JSON_Image (Result, Trace_SHA256));
+   end Put_JSON;
+
    procedure Write_JSON
      (Result       : Flyology_TLA.Replay.Replay_Result;
+      Trace_SHA256 : String;
+      Path         : String)
+   is
+      Output : Ada.Text_IO.File_Type;
+   begin
+      Ada.Text_IO.Create (Output, Ada.Text_IO.Out_File, Path);
+      Put_JSON (Output, Result, Trace_SHA256);
+      Ada.Text_IO.Close (Output);
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (Output) then
+            Ada.Text_IO.Close (Output);
+         end if;
+         raise;
+   end Write_JSON;
+
+   procedure Write_JSON
+     (Result       : Flyology_TLA.Replay.Replay_Result_V2;
       Trace_SHA256 : String;
       Path         : String)
    is

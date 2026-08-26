@@ -24,13 +24,19 @@ modeled rejection belongs in the returned outcome JSON.
 - stable fingerprint; and
 - diagnostic detail.
 
+The `Replay_Result_V2` overload additionally retains the canonical observed values at a completed divergent
+comparison. Initial-state divergence retains state only; step divergence retains both outcome and state even when the
+outcome is the first mismatch. The bound trace remains the authority for expected values. Adapter failure, invalid
+observed JSON, observation limit failure, and invalid trace do not retain attempted observations.
+
 The default comparator performs structural JSON equality. It ignores whitespace, object-member order, and string escape
 spelling. Arrays remain ordered. JSON number tokens compare exactly to avoid silently introducing floating-point or
 arbitrary-precision policy. An adapter can override `Compare_Initial_State` and `Compare_Step` to compare a reviewed
 semantic projection, tolerate representation-only fields, or implement domain-specific equivalence.
 
 All comparison inputs are bounded by the explicit `Load_Limits` passed to `Run`. Invalid observed JSON is an adapter
-error. `Flyology_TLA.Reporting` provides terse/verbose human output and `flyology.tla.result/1` JSON.
+error. `Flyology_TLA.Reporting` provides terse/verbose human output and explicit `flyology.tla.result/1` and
+`flyology.tla.result/2` JSON APIs.
 `Flyology_TLA.Command_Line.Load` retains the hash of the exact parsed trace bytes for its JSON reporting path. The
 older `Write_Result` operation remains available when a consumer already owns the exact trace SHA-256.
 

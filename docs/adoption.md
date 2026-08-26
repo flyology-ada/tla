@@ -17,7 +17,9 @@
     trace hashing, JSON sidecars, and exit status. Register only boolean application-specific flags through it.
 11. Use `Flyology_TLA.Reporting` directly when an application needs human or JSON rendering without command-line I/O.
 12. Regenerate and byte-compare the generated `.ads`, `.adb`, and `.inference.json` files in CI.
-13. Store full traces and `flyology.tla.result/1` artifacts; reproduce with a prefix ending at the first failure.
+13. Store full traces and version-dispatched result artifacts. Use `flyology.tla.result/2` when post-adapter reporting
+    must retain the observed outcome/state at divergence; result/1 remains supported. Reproduce with a prefix ending
+    at the first failure.
 14. Run TLAPM separately with an explicit cache and strict method; do not represent conformance replay as proof.
 
 Counterweave and Flyology DB should consume this lower contract rather than being dependencies of it. A migration may

@@ -520,6 +520,86 @@ package body Flyology_TLA.JSON is
       return To_String (Result);
    end Canonical_Image;
 
+   procedure Check_String_Limits
+     (Source : String;
+      Item   : Value;
+      Limit  : Positive)
+   is
+   begin
+      case Item.Form is
+         when String_Value =>
+            if String_Data (Source, Item)'Length > Limit then
+               raise JSON_Error with "JSON string exceeds caller limit";
+            end if;
+         when Array_Value =>
+            declare
+               Item_Count : constant Natural := Length (Source, Item);
+            begin
+               if Item_Count > 0 then
+                  for Index in 0 .. Item_Count - 1 loop
+                     Check_String_Limits
+                       (Source, Element (Source, Item, Index), Limit);
+                  end loop;
+               end if;
+            end;
+         when Object_Value =>
+            declare
+               Cursor : Natural := Skip_Whitespace (Source, Item.First + 1);
+            begin
+               while Source (Cursor) /= '}' loop
+                  Cursor := String_End (Source, Cursor);
+                  Cursor := Skip_Whitespace (Source, Cursor);
+                  Cursor := Skip_Whitespace (Source, Cursor + 1);
+                  declare
+                     Child : constant Value := Scan (Source, Cursor);
+                  begin
+                     Check_String_Limits (Source, Child, Limit);
+                     Cursor := Skip_Whitespace (Source, Child.After_Last);
+                  end;
+                  if Source (Cursor) = ',' then
+                     Cursor := Skip_Whitespace (Source, Cursor + 1);
+                  end if;
+               end loop;
+            end;
+         when Null_Value | Boolean_Value | Number_Value =>
+            null;
+      end case;
+   end Check_String_Limits;
+
+   function Canonical_Value
+     (Source               : String;
+      Maximum_Depth        : Positive;
+      Maximum_Name_Octets  : Positive;
+      Maximum_Object_Names : Positive;
+      Maximum_String_Bytes : Positive;
+      Maximum_Value_Bytes  : Positive) return String
+   is
+      --  The empty wrapper name keeps caller name-byte limits about the
+      --  embedded value rather than an implementation-only member name.
+      Document : constant String := "{"""":" & Source & "}";
+      Value_Depth : constant Positive :=
+        (if Maximum_Depth = Positive'Last then Maximum_Depth else Maximum_Depth + 1);
+      Value_Names : constant Positive :=
+        (if Maximum_Object_Names = Positive'Last
+         then Maximum_Object_Names
+         else Maximum_Object_Names + 1);
+   begin
+      if Source'Length > Maximum_Value_Bytes then
+         raise JSON_Error with "JSON value exceeds caller limit";
+      end if;
+      Validate (Document, Value_Depth, Maximum_Name_Octets, Value_Names);
+      declare
+         Value_Node : constant Value := Member (Document, Root (Document), "");
+         Result     : constant String := Canonical_Image (Document, Value_Node);
+      begin
+         Check_String_Limits (Document, Value_Node, Maximum_String_Bytes);
+         if Result'Length > Maximum_Value_Bytes then
+            raise JSON_Error with "canonical JSON value exceeds caller limit";
+         end if;
+         return Result;
+      end;
+   end Canonical_Value;
+
    function Equivalent_Node
      (Left_Source  : String;
       Left         : Value;

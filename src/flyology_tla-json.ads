@@ -17,6 +17,13 @@ private package Flyology_TLA.JSON is
    function Kind (Item : Value) return Value_Kind;
    function Image (Source : String; Item : Value) return String;
    function Canonical_Image (Source : String; Item : Value) return String;
+   function Canonical_Value
+     (Source               : String;
+      Maximum_Depth        : Positive;
+      Maximum_Name_Octets  : Positive;
+      Maximum_Object_Names : Positive;
+      Maximum_String_Bytes : Positive;
+      Maximum_Value_Bytes  : Positive) return String;
    function String_Data (Source : String; Item : Value) return String;
    function Natural_Data (Source : String; Item : Value) return Natural;
 
