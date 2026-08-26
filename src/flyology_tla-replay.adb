@@ -1,8 +1,6 @@
 with Ada.Exceptions;
-with Ada.Strings;
-with Ada.Strings.Fixed;
-with Ada.Text_IO;
 with Flyology_TLA.JSON;
+with Flyology_TLA.Reporting;
 
 package body Flyology_TLA.Replay is
 
@@ -189,68 +187,8 @@ package body Flyology_TLA.Replay is
       Trace_SHA256 : String;
       Path         : String)
    is
-      Output : Ada.Text_IO.File_Type;
-      Verdict_Text : constant String :=
-        (case Item.Status is
-           when Conformant    => "conformant",
-           when Diverged      => "diverged",
-           when Adapter_Error => "adapter-error");
    begin
-      if Trace_SHA256'Length /= 64
-        or else
-          (for some Character_Of_SHA of Trace_SHA256 =>
-             Character_Of_SHA not in '0' .. '9' | 'a' .. 'f')
-      then
-         raise Constraint_Error with "trace SHA-256 is not canonical lowercase hexadecimal";
-      end if;
-      Ada.Text_IO.Create (Output, Ada.Text_IO.Out_File, Path);
-      Ada.Text_IO.Put
-        (Output,
-         "{""format"":""flyology.tla.result/1"",""verdict"":"
-         & Flyology_TLA.JSON.Quote (Verdict_Text)
-         & ",""trace_sha256"":"
-         & Flyology_TLA.JSON.Quote (Trace_SHA256)
-         & ",""compared_steps"":"
-         & Ada.Strings.Fixed.Trim (Natural'Image (Item.Compared_Steps), Ada.Strings.Both)
-         & ",""failure"":" );
-      if Item.Status = Conformant then
-         Ada.Text_IO.Put (Output, "null");
-      else
-         declare
-            Property : constant String :=
-              (if Length (Item.Property_Name) > 0
-               then To_String (Item.Property_Name)
-               else "tla-conformance");
-            Fingerprint : constant String :=
-              (if Length (Item.Fingerprint) > 0
-               then To_String (Item.Fingerprint)
-               else "unspecified-failure");
-            Detail : constant String :=
-              (if Length (Item.Detail) > 0
-               then To_String (Item.Detail)
-               else "adapter reported failure without detail");
-         begin
-            Ada.Text_IO.Put
-              (Output,
-               "{""step"":"
-               & Ada.Strings.Fixed.Trim (Natural'Image (Item.Failure_Step), Ada.Strings.Both)
-               & ",""property"":"
-               & Flyology_TLA.JSON.Quote (Property)
-               & ",""fingerprint"":"
-               & Flyology_TLA.JSON.Quote (Fingerprint)
-               & ",""detail"":"
-               & Flyology_TLA.JSON.Quote (Detail)
-               & "}");
-         end;
-      end if;
-      Ada.Text_IO.Put_Line (Output, "}");
-      Ada.Text_IO.Close (Output);
-   exception
-      when others =>
-         if Ada.Text_IO.Is_Open (Output) then
-            Ada.Text_IO.Close (Output);
-         end if;
-         raise;
+      Flyology_TLA.Reporting.Write_JSON (Item, Trace_SHA256, Path);
    end Write_Result;
 
 end Flyology_TLA.Replay;

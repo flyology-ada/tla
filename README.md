@@ -126,7 +126,28 @@ It requires the four environment variables emitted by `toolchain env`.
   the dependency-neutral `Flyology_TLA.Codecs` support boundary.
 
 The versioned schemas are under `schema`; detailed contracts are in `docs/trace-contract.md` and
-`docs/adapter-contract.md`.
+`docs/adapter-contract.md`. Reusable human/JSON reporting and runner argument handling are documented in
+`docs/reporting-and-cli.md`.
+
+## Run the counter example
+
+```sh
+cd examples/counter/ada
+alr -n build
+./bin/counter-conformance ../traces/counter.trace.json
+./bin/counter-conformance --format verbose ../traces/counter.trace.json
+./bin/counter-conformance --format json ../traces/counter.trace.json
+```
+
+The example itself registers `--buggy`, which enables an intentional lost update and demonstrates the first state
+divergence with a failing exit status:
+
+```sh
+./bin/counter-conformance --buggy --format verbose ../traces/counter.trace.json
+```
+
+`--result-json PATH` writes the stable JSON result alongside terse or verbose stdout. Every load-limit field can be
+overridden explicitly on the command line; the example supplies its reviewed defaults.
 
 ## Tests
 
@@ -136,7 +157,8 @@ The versioned schemas are under `schema`; detailed contracts are in `docs/trace-
 
 This builds warning-strict Ada, byte-compares normalization, validates strict envelopes and prefix reproduction,
 checks conformant/divergent result artifacts, exercises the toolchain installer hermetically (including tamper and
-broad-root rejection), and builds the nested Alire consumer. When toolchain environment variables are present it also
-runs the actual TLC/TLAPM gate.
+broad-root rejection), tests terse/verbose/JSON application reporting and argument failures, and builds the nested
+Alire consumer. When toolchain environment variables are present it also runs the actual TLC/TLAPM gate and the
+example-owned `--buggy` divergence.
 
-No remote repository is created or configured by this project setup.
+Harness build, test, and provisioning commands never create or configure Git remotes.

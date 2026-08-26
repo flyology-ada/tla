@@ -18,7 +18,7 @@ modeled rejection belongs in the returned outcome JSON.
 `Run` compares the initial state, then outcome and post-state for each action. It stops at the first failure and reports:
 
 - `Conformant`, `Diverged`, or `Adapter_Error`;
-- number of successfully compared steps;
+- number of steps whose comparisons completed, including the first divergent comparison;
 - first failure step (`0` for reset/initial-state failures);
 - property `tla-conformance`;
 - stable fingerprint; and
@@ -30,7 +30,9 @@ arbitrary-precision policy. An adapter can override `Compare_Initial_State` and 
 semantic projection, tolerate representation-only fields, or implement domain-specific equivalence.
 
 All comparison inputs are bounded by the explicit `Load_Limits` passed to `Run`. Invalid observed JSON is an adapter
-error. `Write_Result` materializes `flyology.tla.result/1`; consumers supply the SHA-256 of the exact trace artifact.
+error. `Flyology_TLA.Reporting` provides terse/verbose human output and `flyology.tla.result/1` JSON.
+`Flyology_TLA.Command_Line.Load` retains the hash of the exact parsed trace bytes for its JSON reporting path. The
+older `Write_Result` operation remains available when a consumer already owns the exact trace SHA-256.
 
 An adapter may spawn the implementation in a child process when crash containment or fresh-process semantics matter.
 Process lifecycle and protocol are implementation-specific and intentionally outside this lower-level crate.

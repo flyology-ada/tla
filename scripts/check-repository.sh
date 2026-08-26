@@ -13,6 +13,10 @@ test -f examples/counter/ada/generated/counter_model.ads
 test -f examples/counter/ada/generated/counter_model.adb
 test -f examples/counter/ada/generated/counter_model.inference.json
 test -f schema/ada-inference-v1.schema.json
+test -f src/flyology_tla-reporting.ads
+test -f src/flyology_tla-command_line.ads
+test -f docs/reporting-and-cli.md
+test -f examples/counter/README.md
 
 for script in scripts/*.sh tests/scripts/*.sh tests/toolchain-bin/* tests/sandbox-bin/* share/*.sh
 do
@@ -23,6 +27,11 @@ imports=$(rg -l '^with Flyology_JSON[.;]' src || true)
 test "$imports" = src/flyology_tla-json.adb
 ! rg -n 'Input_JSON|Flyology_TLA\.Codecs|Flyology_TLA\.JSON' \
   examples/counter/ada/src >/dev/null
+grep -Fq 'with Flyology_TLA.Command_Line;' \
+  examples/counter/ada/src/counter_conformance.adb
+grep -Fq '"--buggy"' examples/counter/ada/src/counter_conformance.adb
+! rg -n '^with Ada\.(Command_Line|Text_IO);' \
+  examples/counter/ada/src/counter_conformance.adb >/dev/null
 grep -Fq '"format":"flyology.tla.ada-inference/1"' \
   examples/counter/ada/generated/counter_model.inference.json
 grep -Fq 'type State_Type is record' \

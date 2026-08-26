@@ -3,6 +3,7 @@ with Ada.Strings;
 with Ada.Strings.Fixed;
 with Ada.Text_IO;
 with Flyology_TLA.JSON;
+with GNAT.SHA256;
 
 package body Flyology_TLA.Traces is
 
@@ -54,11 +55,22 @@ package body Flyology_TLA.Traces is
    end Is_Qualified_Action;
 
    function Load (Path : String; Limits : Load_Limits) return Trace is
+      Ignored_SHA256 : Unbounded_String;
+   begin
+      return Load (Path, Limits, Ignored_SHA256);
+   end Load;
+
+   function Load
+     (Path   : String;
+      Limits : Load_Limits;
+      SHA256 : out Unbounded_String) return Trace
+   is
       Source : constant String :=
         Flyology_TLA.JSON.Read_File (Path, Limits.Maximum_File_Bytes);
       Root   : Flyology_TLA.JSON.Value;
       Result : Trace;
    begin
+      SHA256 := To_Unbounded_String (GNAT.SHA256.Digest (Source));
       Flyology_TLA.JSON.Validate
         (Source,
          Limits.Maximum_JSON_Depth,

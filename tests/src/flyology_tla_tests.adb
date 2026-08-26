@@ -4,6 +4,7 @@ with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 with Flyology_TLA.Replay;
+with Flyology_TLA.Reporting;
 with Flyology_TLA.Traces;
 
 procedure Flyology_TLA_Tests is
@@ -92,11 +93,26 @@ procedure Flyology_TLA_Tests is
      Flyology_TLA.Traces.Load (Ada.Command_Line.Argument (1), Limits);
    Adapter : Counter_Adapter;
    Result  : Flyology_TLA.Replay.Replay_Result;
+   UTF8_Snowman : constant String :=
+     Character'Val (16#E2#) & Character'Val (16#98#) & Character'Val (16#83#);
 
 begin
    Flyology_TLA.Replay.Run (Adapter, Trace, Limits, Result);
    Require (Result.Status = Flyology_TLA.Replay.Conformant, "counter trace did not conform");
    Require (Result.Compared_Steps = 2, "wrong conformance step count");
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Terse) =
+        "conformant: 2 modeled steps",
+      "terse conformant report changed");
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Verbose) =
+        "Verdict: conformant" & ASCII.LF
+        & "Compared steps: 2" & ASCII.LF
+        & "Failure step: none" & ASCII.LF
+        & "Property: none" & ASCII.LF
+        & "Fingerprint: none" & ASCII.LF
+        & "Detail: none",
+      "verbose conformant report changed");
    Flyology_TLA.Replay.Write_Result
      (Result,
       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -107,6 +123,19 @@ begin
    Require (Result.Status = Flyology_TLA.Replay.Diverged, "divergence was not detected");
    Require (Result.Failure_Step = 1, "wrong first divergent step");
    Require (To_String (Result.Fingerprint) = "state:Counter!Increment", "unstable fingerprint");
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Terse) =
+        "diverged at step 1: state:Counter!Increment",
+      "terse divergence report changed");
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Verbose) =
+        "Verdict: diverged" & ASCII.LF
+        & "Compared steps: 1" & ASCII.LF
+        & "Failure step: 1" & ASCII.LF
+        & "Property: tla-conformance" & ASCII.LF
+        & "Fingerprint: state:Counter!Increment" & ASCII.LF
+        & "Detail: observed semantic state differs from the model after Counter!Increment",
+      "verbose divergence report changed");
    Flyology_TLA.Replay.Write_Result
      (Result,
       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -120,5 +149,28 @@ begin
    Require
      (To_String (Result.Fingerprint) = "adapter-observation-json:Counter!Increment",
       "invalid adapter JSON has an unstable fingerprint");
+
+   Result :=
+     (Status         => Flyology_TLA.Replay.Adapter_Error,
+      Compared_Steps => 0,
+      Failure_Step   => 0,
+      Property_Name  => To_Unbounded_String ("tla-conformance"),
+      Fingerprint    => To_Unbounded_String ("adapter\fault"),
+      Detail         =>
+        To_Unbounded_String
+          ("line one" & ASCII.LF & "line two " & UTF8_Snowman));
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Terse) =
+        "adapter-error at step 0: adapter\\fault",
+      "terse report did not escape a backslash");
+   Require
+     (Flyology_TLA.Reporting.Image (Result, Flyology_TLA.Reporting.Verbose) =
+        "Verdict: adapter-error" & ASCII.LF
+        & "Compared steps: 0" & ASCII.LF
+        & "Failure step: 0" & ASCII.LF
+        & "Property: tla-conformance" & ASCII.LF
+        & "Fingerprint: adapter\\fault" & ASCII.LF
+        & "Detail: line one\nline two " & UTF8_Snowman,
+      "verbose report did not escape controls or preserve UTF-8 bytes");
    Ada.Text_IO.Put_Line ("flyology_tla replay tests passed");
 end Flyology_TLA_Tests;

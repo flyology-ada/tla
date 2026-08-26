@@ -1,7 +1,7 @@
-with Ada.Command_Line;
+with Ada.Exceptions;
 with Ada.Strings.Unbounded;
-with Ada.Text_IO;
 with Counter_Model;
+with Flyology_TLA.Command_Line;
 with Flyology_TLA.Replay;
 with Flyology_TLA.Traces;
 
@@ -9,7 +9,6 @@ procedure Counter_Conformance is
 
    use Ada.Strings.Unbounded;
    use type Counter_Model.State_Count_Type;
-   use type Flyology_TLA.Replay.Verdict;
 
    Limits : constant Flyology_TLA.Traces.Load_Limits :=
      (Maximum_File_Bytes   => 1_000_000,
@@ -23,6 +22,7 @@ procedure Counter_Conformance is
    --  Counter_Model is generated from Counter.tla. Extending its Adapter is
    --  the only model-specific integration step; this file never handles JSON.
    type Counter_Adapter is new Counter_Model.Adapter with record
+      Buggy   : Boolean := False;
       Current : Counter_Model.State_Type :=
         (Count       => 0,
          Last_Action => Counter_Model.State_Last_Action_Init);
@@ -88,36 +88,56 @@ procedure Counter_Conformance is
 
       --  Execute exactly one implementation transition. Only observations
       --  are returned; the expected model outcome/state are never provided.
-      Self.Current.Count := Self.Current.Count + 1;
+      --  The optional demonstration bug loses the modeled increment. The
+      --  adapter still reports its honest state, allowing replay to expose
+      --  the discrepancy instead of manufacturing a failure response.
+      if not Self.Buggy then
+         Self.Current.Count := Self.Current.Count + 1;
+      end if;
       Self.Current.Last_Action := Counter_Model.State_Last_Action_Increment;
       Observed := (Accepted => True);
       State := Self.Current;
       Status := (Succeeded => True, Detail => Null_Unbounded_String);
    end Apply;
 
-   Trace   : constant Flyology_TLA.Traces.Trace :=
-     Flyology_TLA.Traces.Load (Ada.Command_Line.Argument (1), Limits);
-   Adapter : Counter_Adapter;
-   Result  : Flyology_TLA.Replay.Replay_Result;
+   Flags : Flyology_TLA.Command_Line.Application_Flag_Array :=
+     [1 => Flyology_TLA.Command_Line.Flag
+       ("--buggy", "run the example with an intentional lost-update bug")];
 
 begin
-   --  Generated Run translates the typed observations internally and then
-   --  delegates structural comparison and first-divergence reporting to the
-   --  reusable Flyology_TLA replay engine.
-   Counter_Model.Run (Adapter, Trace, Limits, Result);
-   if Result.Status = Flyology_TLA.Replay.Conformant then
-      Ada.Text_IO.Put_Line
-        ("conformant:" & Natural'Image (Result.Compared_Steps) & " modeled steps");
-   else
-      Ada.Text_IO.Put_Line
-        (Ada.Text_IO.Standard_Error,
-         Flyology_TLA.Replay.Verdict'Image (Result.Status)
-         & " at step"
-         & Natural'Image (Result.Failure_Step)
-         & ": "
-         & To_String (Result.Fingerprint)
-         & " — "
-         & To_String (Result.Detail));
-      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
-   end if;
+   declare
+      Config : Flyology_TLA.Command_Line.Configuration :=
+        Flyology_TLA.Command_Line.Parse (Limits, Flags);
+   begin
+      if Flyology_TLA.Command_Line.Help_Requested (Config) then
+         Flyology_TLA.Command_Line.Put_Help (Flags);
+         return;
+      end if;
+
+      declare
+         Trace   : constant Flyology_TLA.Traces.Trace :=
+           Flyology_TLA.Command_Line.Load (Config);
+         Adapter : Counter_Adapter;
+         Result  : Flyology_TLA.Replay.Replay_Result;
+      begin
+         Adapter.Buggy := Flyology_TLA.Command_Line.Is_Set (Flags (1));
+
+         --  Generated Run translates the typed observations internally and
+         --  delegates structural comparison to the reusable replay engine.
+         Counter_Model.Run
+           (Adapter,
+            Trace,
+            Flyology_TLA.Command_Line.Limits (Config),
+            Result);
+         Flyology_TLA.Command_Line.Report (Config, Result);
+         Flyology_TLA.Command_Line.Set_Exit_Status (Result);
+      end;
+   end;
+exception
+   when Error : Flyology_TLA.Command_Line.Usage_Error =>
+      Flyology_TLA.Command_Line.Fail
+        (Ada.Exceptions.Exception_Message (Error), Flags, Show_Help => True);
+   when Error : Flyology_TLA.Traces.Trace_Error =>
+      Flyology_TLA.Command_Line.Fail
+        ("cannot load trace: " & Ada.Exceptions.Exception_Message (Error));
 end Counter_Conformance;

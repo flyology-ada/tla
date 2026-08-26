@@ -12,9 +12,12 @@
    `flyology-tla ada generate MODULE.tla --config MODEL.cfg --package PACKAGE --output DIRECTORY`.
 9. Add the generated directory to the consuming GPR `Source_Dirs`, extend the generated `PACKAGE.Adapter`, and use
    `PACKAGE.Run` with explicit load/replay limits. Handwritten adapter code should contain no JSON.
-10. Regenerate and byte-compare the generated `.ads`, `.adb`, and `.inference.json` files in CI.
-11. Store full traces and `flyology.tla.result/1` artifacts; reproduce with a prefix ending at the first failure.
-12. Run TLAPM separately with an explicit cache and strict method; do not represent conformance replay as proof.
+10. Use `Flyology_TLA.Command_Line` for the trace path, caller-owned limit defaults/overrides, output selection, exact
+    trace hashing, JSON sidecars, and exit status. Register only boolean application-specific flags through it.
+11. Use `Flyology_TLA.Reporting` directly when an application needs human or JSON rendering without command-line I/O.
+12. Regenerate and byte-compare the generated `.ads`, `.adb`, and `.inference.json` files in CI.
+13. Store full traces and `flyology.tla.result/1` artifacts; reproduce with a prefix ending at the first failure.
+14. Run TLAPM separately with an explicit cache and strict method; do not represent conformance replay as proof.
 
 Counterweave and Flyology DB should consume this lower contract rather than being dependencies of it. A migration may
 translate existing recorded choices/workloads into `flyology.tla.trace/1`, but the old artifact alone is not evidence

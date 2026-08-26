@@ -90,7 +90,42 @@ cmp "$project_root/examples/counter/traces/counter.trace.json" \
 
 cd "$project_root/examples/counter/ada"
 alr -n build
-./bin/counter-conformance "$temporary_root/counter.trace.json"
+./bin/counter-conformance "$temporary_root/counter.trace.json" \
+  >"$temporary_root/counter-terse.txt"
+grep -Fxq 'conformant: 2 modeled steps' "$temporary_root/counter-terse.txt"
+./bin/counter-conformance --format verbose "$temporary_root/counter.trace.json" \
+  >"$temporary_root/counter-verbose.txt"
+grep -Fxq 'Verdict: conformant' "$temporary_root/counter-verbose.txt"
+./bin/counter-conformance --format json \
+  --result-json "$temporary_root/counter-result.json" \
+  "$temporary_root/counter.trace.json" >"$temporary_root/counter-stdout.json"
+cmp "$temporary_root/counter-result.json" "$temporary_root/counter-stdout.json"
+grep -Fq '"format":"flyology.tla.result/1"' "$temporary_root/counter-result.json"
+./bin/counter-conformance --help >"$temporary_root/counter-help.txt"
+grep -Fq -- '--buggy   run the example with an intentional lost-update bug' \
+  "$temporary_root/counter-help.txt"
+set +e
+./bin/counter-conformance --buggy "$temporary_root/counter.trace.json" \
+  >"$temporary_root/counter-buggy.txt" 2>&1
+buggy_status=$?
+set -e
+test "$buggy_status" -ne 0
+grep -Fxq 'diverged at step 1: state:Counter!Increment' \
+  "$temporary_root/counter-buggy.txt"
+set +e
+./bin/counter-conformance --buggy --format json \
+  --result-json "$temporary_root/counter-buggy-result.json" \
+  "$temporary_root/counter.trace.json" \
+  >"$temporary_root/counter-buggy-stdout.json" 2>&1
+buggy_json_status=$?
+set -e
+test "$buggy_json_status" -ne 0
+cmp "$temporary_root/counter-buggy-result.json" \
+  "$temporary_root/counter-buggy-stdout.json"
+grep -Fq '"verdict":"diverged"' \
+  "$temporary_root/counter-buggy-result.json"
+grep -Fq '"fingerprint":"state:Counter!Increment"' \
+  "$temporary_root/counter-buggy-result.json"
 set +e
 ./bin/counter-conformance "$project_root/tests/fixtures/typed-invalid-input.json" \
   >"$temporary_root/typed-invalid.log" 2>&1

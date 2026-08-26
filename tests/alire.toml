@@ -8,7 +8,7 @@ maintainers-logins = ["yrashk"]
 licenses = "MIT OR Apache-2.0"
 tags = ["testing"]
 project-files = ["flyology_tla_tests.gpr"]
-executables = ["flyology-tla-tests"]
+executables = ["flyology-tla-tests", "flyology-tla-command-line-probe"]
 
 [[depends-on]]
 flyology_tla = "*"

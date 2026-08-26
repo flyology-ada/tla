@@ -29,3 +29,8 @@ The generated bridge owns JSON conversion and delegates to `Flyology_TLA.Replay.
 oracle-only and are not exposed to the implementation adapter. Teach users to commit and byte-compare the generated
 `.ads`, `.adb`, and `.inference.json` files. If inference rejects an unbounded or unsupported type, refine the TLA+
 type set instead of inventing an Ada bound.
+
+For application runners, prefer `Flyology_TLA.Command_Line.Parse`, `Load`, `Report`, and `Set_Exit_Status`. Callers
+supply reviewed default `Load_Limits`; command-line options may override each field. `--format terse|verbose|json`
+selects stdout and `--result-json PATH` adds the versioned JSON artifact. Consumer-only boolean switches are registered
+with `Flag` and queried with `Is_Set`; they must not be added as built-ins to the reusable crate.
