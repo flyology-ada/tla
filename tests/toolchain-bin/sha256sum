@@ -8,7 +8,9 @@ do
 done
 case "$file" in
   */tla2tools.jar)
-    printf '%s  %s\n' eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a "$file"
+    printf '%s  %s\n' \
+      "${FLYOLOGY_TLA_TEST_JAR_DIGEST:-16b8cd970e07147ff91f126baecba7edd98202e5ab33220a42f8f4358ee94b2b}" \
+      "$file"
     ;;
   */tlapm.tar.gz)
     printf '%s  %s\n' ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde "$file"
