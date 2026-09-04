@@ -3,9 +3,14 @@ set -eu
 
 destination=
 url=
+accept=
 while test "$#" -gt 0
 do
   case "$1" in
+    --header)
+      accept=$2
+      shift 2
+      ;;
     --output)
       destination=$2
       shift 2
@@ -19,7 +24,10 @@ do
 done
 test -n "$destination"
 case "$url" in
-  *tla2tools.jar) source_file=$FLYOLOGY_TLA_TEST_JAR ;;
+  *releases/assets/543242582)
+    test "$accept" = 'Accept: application/octet-stream'
+    source_file=$FLYOLOGY_TLA_TEST_JAR
+    ;;
   *tlapm-*.tar.gz) source_file=$FLYOLOGY_TLA_TEST_TLAPM_ARCHIVE ;;
   *api.adoptium.net*) source_file=$FLYOLOGY_TLA_TEST_JAVA_ARCHIVE ;;
   *) printf '%s\n' "unexpected fixture URL: $url" >&2; exit 1 ;;

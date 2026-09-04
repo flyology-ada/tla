@@ -2,10 +2,10 @@
   "format": "flyology.tla.toolchain-lock/1",
   "tla_tools": {
     "version": "1.8.0",
-    "revision": "9787e65",
-    "asset_id": 523952485,
-    "url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
-    "sha256": "eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a"
+    "revision": "1239539",
+    "asset_id": 543242582,
+    "url": "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/543242582",
+    "sha256": "16b8cd970e07147ff91f126baecba7edd98202e5ab33220a42f8f4358ee94b2b"
   },
   "tlaps": {
     "version": "1.6.0-pre",

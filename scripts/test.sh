@@ -84,7 +84,7 @@ FLYOLOGY_TLA_JAVA=$identity_java FLYOLOGY_TLA_TLC_JAR=$identity_jar \
   tests/fixtures/tlc-counterexample.json "$temporary_root/normalized.json" \
   examples/counter/formal/Counter.tla \
   --config examples/counter/formal/Counter.cfg \
-  --toolchain tla2tools-1.8.0+9787e65 10 20
+  --toolchain tla2tools-1.8.0+1239539 10 20
 ./bin/flyology-tla trace validate "$temporary_root/normalized.json" 10 20
 cmp tests/fixtures/trace.json "$temporary_root/normalized.json"
 ./bin/flyology-tla trace prefix \
@@ -106,7 +106,7 @@ expect_failure env FLYOLOGY_TLA_JAVA=$identity_java \
   tests/fixtures/invalid-tlc-gap.json "$temporary_root/invalid-normalized.json" \
   examples/counter/formal/Counter.tla \
   --config examples/counter/formal/Counter.cfg \
-  --toolchain tla2tools-1.8.0+9787e65 10 20
+  --toolchain tla2tools-1.8.0+1239539 10 20
 test ! -e "$temporary_root/invalid-normalized.json"
 set +e
 ./bin/flyology-tla ada generate \

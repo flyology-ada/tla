@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-TLA_TOOLS_URL=https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-TLA_TOOLS_SHA256=eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a
+TLA_TOOLS_URL=https://api.github.com/repos/tlaplus/tlaplus/releases/assets/543242582
+TLA_TOOLS_SHA256=16b8cd970e07147ff91f126baecba7edd98202e5ab33220a42f8f4358ee94b2b
 TLAPM_DARWIN_URL=https://github.com/tlaplus/tlapm/releases/download/1.6.0-pre/tlapm-1.6.0-pre-arm64-darwin.tar.gz
 TLAPM_DARWIN_SHA256=ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde
 TLAPM_DARWIN_BINARY_SHA256=291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7
@@ -103,8 +103,17 @@ download()
 {
   url=$1
   destination=$2
-  curl --fail --location --retry 3 --retry-delay 2 \
-    --output "$destination" "$url"
+  case "$url" in
+    https://api.github.com/repos/*/releases/assets/*)
+      curl --fail --location --retry 3 --retry-delay 2 \
+        --header 'Accept: application/octet-stream' \
+        --output "$destination" "$url"
+      ;;
+    *)
+      curl --fail --location --retry 3 --retry-delay 2 \
+        --output "$destination" "$url"
+      ;;
+  esac
 }
 
 verify_expected_digest()
@@ -131,7 +140,7 @@ write_receipt()
     printf '  "platform": "%s",\n' "$selected_platform"
     printf '%s\n' '  "tla_tools": {'
     printf '%s\n' '    "version": "1.8.0",'
-    printf '%s\n' '    "revision": "9787e65",'
+    printf '%s\n' '    "revision": "1239539",'
     printf '    "sha256": "%s"\n' "$TLA_TOOLS_SHA256"
     printf '%s\n' '  },'
     printf '%s\n' '  "tlaps": {'
@@ -248,7 +257,7 @@ verify_toolchain()
   test -n "$expected_java_sha" || die "receipt lacks java_sha256"
   test -n "$expected_tlapm_sha" || die "receipt lacks tlapm_sha256"
   test "$receipt_platform" = "$(platform)" || die "receipt platform does not match this host"
-  grep -Fq '"revision": "9787e65"' "$verify_root/receipt.json" ||
+  grep -Fq '"revision": "1239539"' "$verify_root/receipt.json" ||
     die "receipt lacks pinned TLA+ Tools revision"
   grep -Fq '"revision": "4600b24"' "$verify_root/receipt.json" ||
     die "receipt lacks pinned TLAPS revision"

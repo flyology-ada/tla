@@ -23,6 +23,17 @@ export FLYOLOGY_TLA_TEST_TLAPM_ARCHIVE=$temporary_root/tlapm.tar.gz
 PATH=$project_root/tests/toolchain-bin:$PATH
 export PATH
 
+# A release-asset replacement must fail before publishing an installation.
+replacement_root="$temporary_root/replacement/toolchain"
+set +e
+FLYOLOGY_TLA_TEST_JAR_DIGEST=0000000000000000000000000000000000000000000000000000000000000000 \
+  "$project_root/bin/flyology-tla" toolchain install "$replacement_root" \
+  >/dev/null 2>&1
+replacement_status=$?
+set -e
+test "$replacement_status" -ne 0
+test ! -e "$replacement_root"
+
 toolchain_root="$temporary_root/install root/toolchain"
 "$project_root/bin/flyology-tla" toolchain install "$toolchain_root"
 "$project_root/bin/flyology-tla" toolchain verify "$toolchain_root"

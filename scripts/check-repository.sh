@@ -48,7 +48,9 @@ grep -Fq 'Last_Action : State_Last_Action_Type;' \
 ! rg -n '^\[\[pins\]\]' alire.toml >/dev/null
 
 for pin in \
-  eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a \
+  1239539 \
+  543242582 \
+  16b8cd970e07147ff91f126baecba7edd98202e5ab33220a42f8f4358ee94b2b \
   ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde \
   bfa5e5350ac1ec7202feecad0a4a71a5bb58c16a49660448b35b6f371ba9e2f5 \
   291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7
