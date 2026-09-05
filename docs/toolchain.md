@@ -12,8 +12,9 @@ are rejected before replacement. An existing root is replaced only after the com
 
 The machine-readable authority is `toolchain/toolchain.lock.json`:
 
-- TLA+ Tools 1.8.0 revision `1239539`; exact official asset ID and `tla2tools.jar` SHA-256. The installer fetches
-  the asset-id endpoint rather than the mutable tag download path.
+- TLA+ Tools 1.8.0 revision `b123b22654942bd7f8b1bcadcc47da4ee2cf4c0e`; exact `tla2tools.jar` SHA-256.
+  Upstream continuously replaces this prerelease asset, so the installer uses its stable release-name URL instead of
+  a transient asset ID and fails closed unless both the digest and embedded revision match the reviewed lock.
 - TLAPS 1.6.0-pre revision `4600b24`; exact official archive SHA-256 per platform. The macOS arm64 extracted `tlapm`
   binary is additionally exact-hash pinned.
 - Eclipse Temurin feature 21, latest GA at installation time. This moving choice is converted to immutable local

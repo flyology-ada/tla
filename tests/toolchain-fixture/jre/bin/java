@@ -1,4 +1,11 @@
 #!/bin/sh
-printf '%s\n' '    java.vendor = Eclipse Adoptium' >&2
-printf '%s\n' '    java.version = 21.0.99-test' >&2
-printf '%s\n' 'openjdk version "21.0.99-test"' >&2
+case " $* " in
+  *' tlc2.REPL '*)
+    printf '"%s"\n' "${FLYOLOGY_TLA_TEST_JAR_REVISION:-b123b22}"
+    ;;
+  *)
+    printf '%s\n' '    java.vendor = Eclipse Adoptium' >&2
+    printf '%s\n' '    java.version = 21.0.99-test' >&2
+    printf '%s\n' 'openjdk version "21.0.99-test"' >&2
+    ;;
+esac

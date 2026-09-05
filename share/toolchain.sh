@@ -1,8 +1,10 @@
 #!/bin/sh
 set -eu
 
-TLA_TOOLS_URL=https://api.github.com/repos/tlaplus/tlaplus/releases/assets/543242582
-TLA_TOOLS_SHA256=16b8cd970e07147ff91f126baecba7edd98202e5ab33220a42f8f4358ee94b2b
+TLA_TOOLS_URL=https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+TLA_TOOLS_REVISION=b123b22654942bd7f8b1bcadcc47da4ee2cf4c0e
+TLA_TOOLS_SHORT_REVISION=b123b22
+TLA_TOOLS_SHA256=b658b4e504fdf0b721caf7066320f6b6fe5805f4dd2f717d0e47baba4097205e
 TLAPM_DARWIN_URL=https://github.com/tlaplus/tlapm/releases/download/1.6.0-pre/tlapm-1.6.0-pre-arm64-darwin.tar.gz
 TLAPM_DARWIN_SHA256=ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde
 TLAPM_DARWIN_BINARY_SHA256=291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7
@@ -103,17 +105,8 @@ download()
 {
   url=$1
   destination=$2
-  case "$url" in
-    https://api.github.com/repos/*/releases/assets/*)
-      curl --fail --location --retry 3 --retry-delay 2 \
-        --header 'Accept: application/octet-stream' \
-        --output "$destination" "$url"
-      ;;
-    *)
-      curl --fail --location --retry 3 --retry-delay 2 \
-        --output "$destination" "$url"
-      ;;
-  esac
+  curl --fail --location --retry 3 --retry-delay 2 \
+    --output "$destination" "$url"
 }
 
 verify_expected_digest()
@@ -123,6 +116,17 @@ verify_expected_digest()
   actual=$(digest "$file")
   test "$actual" = "$expected" ||
     die "SHA-256 mismatch for $file: expected $expected, got $actual"
+}
+
+verify_tla_tools_revision()
+{
+  java=$1
+  jar=$2
+  embedded_revision=$(
+    "$java" -cp "$jar" tlc2.REPL 'TLCGet("revision").tag' 2>/dev/null
+  ) || die "cannot read embedded TLA+ Tools revision"
+  test "$embedded_revision" = "\"$TLA_TOOLS_SHORT_REVISION\"" ||
+    die "embedded TLA+ Tools revision mismatch: expected $TLA_TOOLS_SHORT_REVISION, got $embedded_revision"
 }
 
 write_receipt()
@@ -140,7 +144,7 @@ write_receipt()
     printf '  "platform": "%s",\n' "$selected_platform"
     printf '%s\n' '  "tla_tools": {'
     printf '%s\n' '    "version": "1.8.0",'
-    printf '%s\n' '    "revision": "1239539",'
+    printf '    "revision": "%s",\n' "$TLA_TOOLS_REVISION"
     printf '    "sha256": "%s"\n' "$TLA_TOOLS_SHA256"
     printf '%s\n' '  },'
     printf '%s\n' '  "tlaps": {'
@@ -221,6 +225,7 @@ install_toolchain()
   case "$java_version" in
     *[!A-Za-z0-9._+-]*) die "resolved Java version contains unsafe receipt characters" ;;
   esac
+  verify_tla_tools_revision "$java_binary" "$temporary_root/root/lib/tla2tools.jar"
   mv "$java_source" "$temporary_root/root/jre"
 
   write_receipt "$temporary_root/root" "$selected_platform" \
@@ -257,7 +262,7 @@ verify_toolchain()
   test -n "$expected_java_sha" || die "receipt lacks java_sha256"
   test -n "$expected_tlapm_sha" || die "receipt lacks tlapm_sha256"
   test "$receipt_platform" = "$(platform)" || die "receipt platform does not match this host"
-  grep -Fq '"revision": "1239539"' "$verify_root/receipt.json" ||
+  grep -Fq "\"revision\": \"$TLA_TOOLS_REVISION\"" "$verify_root/receipt.json" ||
     die "receipt lacks pinned TLA+ Tools revision"
   grep -Fq '"revision": "4600b24"' "$verify_root/receipt.json" ||
     die "receipt lacks pinned TLAPS revision"
@@ -269,6 +274,8 @@ verify_toolchain()
     awk -F'= ' '/^[[:space:]]*java.vendor = / {print $2; exit}')
   case "$java_version" in 21.*) ;; *) die "installed Java is not feature version 21" ;; esac
   case "$java_vendor" in *Adoptium*) ;; *) die "installed Java is not Eclipse Temurin" ;; esac
+  verify_tla_tools_revision \
+    "$verify_root/jre/bin/java" "$verify_root/lib/tla2tools.jar"
   test "$(receipt_value resolved_version "$verify_root/receipt.json")" = "$java_version" ||
     die "installed Java version does not match receipt"
   if test "$(platform)" = darwin-aarch64

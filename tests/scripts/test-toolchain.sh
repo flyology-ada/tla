@@ -23,7 +23,11 @@ export FLYOLOGY_TLA_TEST_TLAPM_ARCHIVE=$temporary_root/tlapm.tar.gz
 PATH=$project_root/tests/toolchain-bin:$PATH
 export PATH
 
-# A release-asset replacement must fail before publishing an installation.
+# The fixture serves replacement bytes only at the stable release-name URL and
+# rejects deleted asset-ID URLs. A successful installation below therefore
+# reproduces deletion and reupload without binding the lock to the new asset ID.
+
+# Changed replacement bytes must fail before publishing an installation.
 replacement_root="$temporary_root/replacement/toolchain"
 set +e
 FLYOLOGY_TLA_TEST_JAR_DIGEST=0000000000000000000000000000000000000000000000000000000000000000 \
@@ -33,6 +37,17 @@ replacement_status=$?
 set -e
 test "$replacement_status" -ne 0
 test ! -e "$replacement_root"
+
+# A digest-matching JAR with the wrong embedded revision must also fail closed.
+revision_root="$temporary_root/revision/toolchain"
+set +e
+FLYOLOGY_TLA_TEST_JAR_REVISION=1239539 \
+  "$project_root/bin/flyology-tla" toolchain install "$revision_root" \
+  >/dev/null 2>&1
+revision_status=$?
+set -e
+test "$revision_status" -ne 0
+test ! -e "$revision_root"
 
 toolchain_root="$temporary_root/install root/toolchain"
 "$project_root/bin/flyology-tla" toolchain install "$toolchain_root"

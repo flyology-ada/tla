@@ -14,7 +14,7 @@
       "required": ["version", "revision", "sha256"],
       "properties": {
         "version": {"const": "1.8.0"},
-        "revision": {"const": "1239539"},
+        "revision": {"const": "b123b22654942bd7f8b1bcadcc47da4ee2cf4c0e"},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
