@@ -24,9 +24,13 @@ do
 done
 test -n "$destination"
 case "$url" in
-  *releases/assets/543242582)
-    test "$accept" = 'Accept: application/octet-stream'
+  *releases/download/v1.8.0/tla2tools.jar)
+    test -z "$accept"
     source_file=$FLYOLOGY_TLA_TEST_JAR
+    ;;
+  *releases/assets/*)
+    printf '%s\n' "deleted fixture asset: $url" >&2
+    exit 22
     ;;
   *tlapm-*.tar.gz) source_file=$FLYOLOGY_TLA_TEST_TLAPM_ARCHIVE ;;
   *api.adoptium.net*) source_file=$FLYOLOGY_TLA_TEST_JAVA_ARCHIVE ;;
