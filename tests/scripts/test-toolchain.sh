@@ -27,16 +27,22 @@ export PATH
 # rejects deleted asset-ID URLs. A successful installation below therefore
 # reproduces deletion and reupload without binding the lock to the new asset ID.
 
-# Changed replacement bytes must fail before publishing an installation.
-replacement_root="$temporary_root/replacement/toolchain"
-set +e
-FLYOLOGY_TLA_TEST_JAR_DIGEST=0000000000000000000000000000000000000000000000000000000000000000 \
-  "$project_root/bin/flyology-tla" toolchain install "$replacement_root" \
-  >/dev/null 2>&1
-replacement_status=$?
-set -e
-test "$replacement_status" -ne 0
-test ! -e "$replacement_root"
+# Digests observed before the release and its replacement were finalized must
+# fail before publishing an installation.
+for transient_digest in \
+  a1fc0bfe391d99fdd86f579a63ff68c0950010e9dde551f1192b867d5c8f4efd \
+  82cc5759b43c7842410ece4f362850a27d2eb3416341335580a46629822a7896
+do
+  replacement_root="$temporary_root/transient-$transient_digest/toolchain"
+  set +e
+  FLYOLOGY_TLA_TEST_JAR_DIGEST=$transient_digest \
+    "$project_root/bin/flyology-tla" toolchain install "$replacement_root" \
+    >/dev/null 2>&1
+  replacement_status=$?
+  set -e
+  test "$replacement_status" -ne 0
+  test ! -e "$replacement_root"
+done
 
 # A digest-matching JAR with the wrong embedded revision must also fail closed.
 revision_root="$temporary_root/revision/toolchain"
