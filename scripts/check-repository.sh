@@ -49,9 +49,9 @@ grep -Fq 'Last_Action : State_Last_Action_Type;' \
 
 for pin in \
   https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar \
-  b123b22654942bd7f8b1bcadcc47da4ee2cf4c0e \
-  b123b22 \
-  b658b4e504fdf0b721caf7066320f6b6fe5805f4dd2f717d0e47baba4097205e \
+  4ad12e85c481347d1bcdd008d438058f7b8293e3 \
+  4ad12e8 \
+  bb82311bc0493a8d30112a1baa0aece42a5f91b928866c7593930e390c14c340 \
   ad1cb0a047ac2b5c33d6811d5d57c5bfbad4b317cd90299fee4302514f1bebde \
   bfa5e5350ac1ec7202feecad0a4a71a5bb58c16a49660448b35b6f371ba9e2f5 \
   291db0665c3b599f5343b03c06bcfb49b48ac966c39efff8643fa730f0d296b7

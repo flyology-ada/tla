@@ -23,9 +23,9 @@ digest()
 
 model_root=$project_root/examples/counter/formal
 test "$(digest "$FLYOLOGY_TLA_TLC_JAR")" = \
-  b658b4e504fdf0b721caf7066320f6b6fe5805f4dd2f717d0e47baba4097205e
+  bb82311bc0493a8d30112a1baa0aece42a5f91b928866c7593930e390c14c340
 test "$("$FLYOLOGY_TLA_JAVA" -cp "$FLYOLOGY_TLA_TLC_JAR" \
-  tlc2.REPL 'TLCGet("revision").tag')" = '"b123b22"'
+  tlc2.REPL 'TLCGet("revision").tag')" = '"4ad12e8"'
 if test "$(uname -s):$(uname -m)" = Darwin:arm64
 then
   test "$(digest "$FLYOLOGY_TLAPM")" = \
@@ -84,7 +84,7 @@ grep -Eq '^<Increment .*: [1-9]' "$temporary_root/tlc.log"
 "$project_root/bin/flyology-tla" trace normalize \
   "$temporary_root/raw.json" "$temporary_root/counter.trace.json" \
   "$model_root/Counter.tla" --config "$model_root/Counter.cfg" \
-  --toolchain tla2tools-1.8.0+b123b22 10 20
+  --toolchain tla2tools-1.8.0+4ad12e8 10 20
 "$project_root/bin/flyology-tla" trace validate \
   "$temporary_root/counter.trace.json" 10 20
 cmp "$project_root/examples/counter/traces/counter.trace.json" \
